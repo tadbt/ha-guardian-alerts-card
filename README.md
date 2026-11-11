@@ -14,14 +14,15 @@ A modern, origami-inspired security and status alert banner card for **Home Assi
 ## ✨ Features
 
 - **Origami Geometric Design**: Multi-faceted paper crease gradients, a geometric faceted icon medallion, angled severity badge, and a colored bottom alert ribbon/tape strip.
+- **Default "All Secured" Banner**: Automatically displays a calm green `SECURE` banner (`All Secured` with a `mdi:shield-check` shield icon) when no alert rules are active, and switches to active alert banners as soon as a sensor triggers.
 - **Slow Flashing Animations**:
-  - `INFO`: Calm, static origami banner.
-  - `WARNING`: Slow `3.8s` breathing flash across the surface facets and icon.
-  - `CRITICAL`: Urgent `2.6s` slow pulse across the surface, inner glow, and icon.
-- **Theme-Aware Colors & Icons**: Automatically blends with your active Home Assistant theme (`--ha-card-background`, `--info-color`, `--warning-color`, `--error-color`, `--state-icon-color`) via CSS `color-mix()`.
+  - `SECURE`: Green, static origami banner with shield icon (`mdi:shield-check`).
+  - `INFO`: Blue, static origami banner (`mdi:information-outline`).
+  - `WARNING`: Amber, slow `3.8s` breathing flash across the surface facets and icon (`mdi:alert`).
+  - `CRITICAL`: Red, urgent `2.6s` slow pulse across the surface, inner glow, and icon (`mdi:shield-alert`).
+- **Theme-Aware Colors & Icons**: Automatically blends with your active Home Assistant theme (`--ha-card-background`, `--success-color`, `--info-color`, `--warning-color`, `--error-color`, `--state-icon-color`) via CSS `color-mix()`.
 - **Multi-Service Actions (`on_active`, `tap_action`, `hold_action`)**: Trigger multiple services simultaneously when an alert transitions to active or when tapped/held—for example, activating a lighting `scene` **and** calling a TTS announcement `script` with `{{ message }}`.
-- **Automatic Default Icons**: Falls back to sensible defaults when `icon` is omitted (`mdi:information-outline` for `INFO`, `mdi:alert` for `WARNING`, `mdi:shield-alert` for `CRITICAL`).
-- **Visual Card Editor**: Configure alert rules, entities, templates, and `on_active` service calls directly from the Home Assistant UI.
+- **Native Home Assistant Visual Editor (`<ha-form>`)**: Search entities/sensors, icons, service calls (`domain.service`), and service targets directly using Home Assistant's built-in form selectors.
 
 ---
 
@@ -151,3 +152,4 @@ Outputs the standalone ES module to `dist/guardian-alerts-card.js`:
 ```bash
 npm run build
 ```
+

@@ -1,28 +1,72 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { HomeAssistant } from 'custom-card-helpers';
-import { AlertRule, AlertSeverity, GuardianAlertsCardConfig } from './types';
-import { getTemplate, ServiceCallConfig } from './templates';
+import { AlertRule, AlertSeverity, DefaultAlertConfig, GuardianAlertsCardConfig } from './types';
+import { ActionConfig, getTemplate, ServiceCallConfig } from './templates';
+
+interface HaFormSchemaItem {
+  name: string;
+  label?: string;
+  helper?: string;
+  required?: boolean;
+  selector: Record<string, any>;
+}
+
+const TEMPLATE_OPTIONS = [
+  { value: 'SECURE', label: 'SECURE (Green — Static Shield)' },
+  { value: 'INFO', label: 'INFO (Blue — Static)' },
+  { value: 'WARNING', label: 'WARNING (Amber — Slow Flash)' },
+  { value: 'CRITICAL', label: 'CRITICAL (Red — Slow Flash)' },
+];
 
 @customElement('guardian-alerts-card-editor')
 export class GuardianAlertsCardEditor extends LitElement {
   @property({ attribute: false }) public hass?: HomeAssistant;
   @state() private config?: GuardianAlertsCardConfig;
 
+  private defaultSchemaCache = new Map<boolean, HaFormSchemaItem[]>();
+  private ruleSchemaCache = new Map<string, HaFormSchemaItem[]>();
+  private serviceSchemaCache = new Map<string, HaFormSchemaItem[]>();
+  private cachedServicesRef?: HomeAssistant['services'];
+  private cachedServiceOptions: Array<{ value: string; label: string }> = [];
+
+  public connectedCallback(): void {
+    super.connectedCallback();
+    void this.ensureHaComponentsLoaded();
+  }
+
+  private async ensureHaComponentsLoaded(): Promise<void> {
+    if (customElements.get('ha-form') && customElements.get('ha-entity-picker')) {
+      return;
+    }
+    try {
+      const loadCardHelpers = (window as any).loadCardHelpers;
+      if (typeof loadCardHelpers === 'function') {
+        const helpers = await loadCardHelpers();
+        const card = await helpers.createCardElement({ type: 'entities', entities: [] });
+        await card?.constructor?.getConfigElement?.();
+        this.requestUpdate();
+      }
+    } catch {
+      // Ignore if running outside Home Assistant
+    }
+  }
+
   public setConfig(config: GuardianAlertsCardConfig): void {
     this.config = {
       ...config,
+      show_default_alert: config?.show_default_alert ?? true,
+      default_alert: {
+        template: 'SECURE',
+        message: 'All Secured',
+        icon: 'mdi:shield-check',
+        ...(config?.default_alert || {}),
+      },
       alerts: Array.isArray(config?.alerts) ? config.alerts.map((r) => ({ ...r })) : [],
     };
   }
 
-  private emitConfigChanged(nextAlerts: AlertRule[]): void {
-    if (!this.config) return;
-    const nextConfig: GuardianAlertsCardConfig = {
-      ...this.config,
-      type: this.config.type || 'custom:guardian-alerts-card',
-      alerts: nextAlerts,
-    };
+  private emitConfigChanged(nextConfig: GuardianAlertsCardConfig): void {
     this.config = nextConfig;
     this.dispatchEvent(
       new CustomEvent('config-changed', {
@@ -33,54 +77,327 @@ export class GuardianAlertsCardEditor extends LitElement {
     );
   }
 
-  private updateRule(index: number, patch: Partial<AlertRule>): void {
+  private computeLabel = (schema: HaFormSchemaItem): string => {
+    return schema.label || schema.name;
+  };
+
+  private computeHelper = (schema: HaFormSchemaItem): string => {
+    return schema.helper || '';
+  };
+
+  private getDefaultAlertSchema(showDefault: boolean): HaFormSchemaItem[] {
+    const cached = this.defaultSchemaCache.get(showDefault);
+    if (cached) return cached;
+
+    const schema: HaFormSchemaItem[] = [
+      {
+        name: 'show_default_alert',
+        label: 'Show "All Secured" banner when no alerts are active',
+        selector: { boolean: {} },
+      },
+    ];
+
+    if (showDefault) {
+      schema.push(
+        {
+          name: 'message',
+          label: 'Default Secured Message',
+          selector: { text: {} },
+        },
+        {
+          name: 'template',
+          label: 'Default Banner Color / Template',
+          selector: {
+            select: {
+              mode: 'dropdown',
+              options: TEMPLATE_OPTIONS,
+            },
+          },
+        },
+        {
+          name: 'icon',
+          label: 'Default Shield Icon',
+          selector: {
+            icon: {
+              placeholder: 'mdi:shield-check',
+            },
+          },
+        },
+        {
+          name: 'entity',
+          label: 'Optional Entity (for Tap More-Info)',
+          selector: { entity: {} },
+        }
+      );
+    }
+
+    this.defaultSchemaCache.set(showDefault, schema);
+    return schema;
+  }
+
+  private getRuleSchema(
+    entityId: string | undefined,
+    defaultIcon: string,
+    liveStateDisplay?: string
+  ): HaFormSchemaItem[] {
+    const cleanEntity = (entityId || '').trim();
+    const cacheKey = `${cleanEntity}::${defaultIcon}::${liveStateDisplay || ''}`;
+    const cached = this.ruleSchemaCache.get(cacheKey);
+    if (cached) return cached;
+
+    const stateLabel = liveStateDisplay
+      ? `Trigger State / Value (Current: ${liveStateDisplay})`
+      : 'Trigger State / Value (e.g. on, home, 75, > 80, < 20)';
+
+    const schema: HaFormSchemaItem[] = [
+      {
+        name: 'entity',
+        label: 'Entity (Search any sensor or entity)',
+        required: true,
+        selector: { entity: {} },
+      },
+      {
+        name: 'state',
+        label: stateLabel,
+        helper: 'Pick an entity state or enter any value / numeric comparison (e.g. > 80, < 20)',
+        required: true,
+        selector: cleanEntity
+          ? {
+              state: {
+                entity_id: cleanEntity,
+              },
+            }
+          : { text: {} },
+      },
+      {
+        name: 'template',
+        label: 'Alert Template / Severity Color',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: TEMPLATE_OPTIONS,
+          },
+        },
+      },
+      {
+        name: 'icon',
+        label: `Icon (default: ${defaultIcon})`,
+        selector: {
+          icon: {
+            placeholder: defaultIcon,
+          },
+        },
+      },
+      {
+        name: 'message',
+        label: 'Alert Message (supports {{ state }} and {{ entity }})',
+        required: true,
+        selector: { text: {} },
+      },
+      {
+        name: 'tap_action',
+        label: 'Tap Action',
+        selector: {
+          ui_action: {
+            default_action: 'more-info',
+          },
+        },
+      },
+    ];
+
+    this.ruleSchemaCache.set(cacheKey, schema);
+    return schema;
+  }
+
+  private getServiceOptions(): Array<{ value: string; label: string }> {
+    const servicesObj = this.hass?.services;
+    if (servicesObj && servicesObj === this.cachedServicesRef && this.cachedServiceOptions.length > 0) {
+      return this.cachedServiceOptions;
+    }
+
+    const options: Array<{ value: string; label: string }> = [];
+    if (servicesObj) {
+      for (const [domain, domainServices] of Object.entries(servicesObj)) {
+        for (const [serviceName, meta] of Object.entries(domainServices || {})) {
+          const serviceId = `${domain}.${serviceName}`;
+          const friendly = (meta as any)?.name;
+          options.push({
+            value: serviceId,
+            label: friendly ? `${serviceId} — ${friendly}` : serviceId,
+          });
+        }
+      }
+      options.sort((a, b) => a.value.localeCompare(b.value));
+    } else {
+      // Fallback common services if hass.services is not populated yet
+      options.push(
+        { value: 'scene.turn_on', label: 'scene.turn_on — Activate Scene' },
+        { value: 'script.turn_on', label: 'script.turn_on — Run Script' },
+        { value: 'script.tts_announce', label: 'script.tts_announce — TTS Announce Script' },
+        { value: 'light.turn_on', label: 'light.turn_on — Turn On Light' },
+        { value: 'light.turn_off', label: 'light.turn_off — Turn Off Light' },
+        { value: 'input_boolean.toggle', label: 'input_boolean.toggle — Toggle Input Boolean' },
+        { value: 'notify.notify', label: 'notify.notify — Send Notification' }
+      );
+    }
+
+    this.cachedServicesRef = servicesObj;
+    this.cachedServiceOptions = options;
+    this.serviceSchemaCache.clear();
+    return options;
+  }
+
+  private getServiceCallSchema(currentService?: string): HaFormSchemaItem[] {
+    const baseOptions = this.getServiceOptions();
+    const svcVal = (currentService || '').trim();
+    const cacheKey = `${baseOptions.length}::${svcVal}`;
+    const cached = this.serviceSchemaCache.get(cacheKey);
+    if (cached) return cached;
+
+    const options =
+      svcVal && !baseOptions.some((o) => o.value === svcVal)
+        ? [{ value: svcVal, label: svcVal }, ...baseOptions]
+        : baseOptions;
+
+    const schema: HaFormSchemaItem[] = [
+      {
+        name: 'service',
+        label: 'Service Call (search domain.service)',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            custom_value: true,
+            options,
+          },
+        },
+      },
+      {
+        name: 'target',
+        label: 'Target (Search Entities, Devices, or Areas)',
+        selector: {
+          target: {},
+        },
+      },
+      {
+        name: 'message',
+        label: 'Message Parameter (optional, supports {{ message }} & {{ entity }})',
+        selector: { text: {} },
+      },
+    ];
+
+    this.serviceSchemaCache.set(cacheKey, schema);
+    return schema;
+  }
+
+  private onDefaultAlertFormChanged(ev: CustomEvent): void {
+    ev.stopPropagation();
     if (!this.config) return;
-    const next = this.config.alerts.map((rule, i) => {
+    const value = ev.detail?.value;
+    if (!value) return;
+
+    const showDefault = value.show_default_alert !== false;
+    const nextDefaultAlert: DefaultAlertConfig = {
+      ...(this.config.default_alert || {}),
+      template: (value.template || 'SECURE') as AlertSeverity,
+      message: value.message ?? 'All Secured',
+      icon: value.icon || 'mdi:shield-check',
+    };
+
+    if (value.entity && value.entity.trim() !== '') {
+      nextDefaultAlert.entity = value.entity.trim();
+    } else {
+      delete nextDefaultAlert.entity;
+    }
+
+    this.emitConfigChanged({
+      ...this.config,
+      type: this.config.type || 'custom:guardian-alerts-card',
+      show_default_alert: showDefault,
+      default_alert: nextDefaultAlert,
+    });
+  }
+
+  private onRuleFormChanged(index: number, ev: CustomEvent): void {
+    ev.stopPropagation();
+    if (!this.config) return;
+    const value = ev.detail?.value;
+    if (!value) return;
+
+    const nextAlerts = this.config.alerts.map((rule, i) => {
       if (i !== index) return rule;
-      const updated: AlertRule = { ...rule, ...patch };
-      if (!updated.icon || updated.icon.trim() === '') {
+      const updated: AlertRule = {
+        ...rule,
+        entity: value.entity ?? rule.entity ?? '',
+        state: value.state ?? rule.state ?? '',
+        template: ((value.template || rule.template || 'INFO') as string).toUpperCase() as AlertSeverity,
+        message: value.message ?? rule.message ?? '',
+      };
+
+      if (value.icon && value.icon.trim() !== '') {
+        updated.icon = value.icon.trim();
+      } else {
         delete updated.icon;
       }
+
+      if (value.tap_action && !Array.isArray(rule.tap_action)) {
+        updated.tap_action = value.tap_action as ActionConfig;
+      }
+
       return updated;
     });
-    this.emitConfigChanged(next);
+
+    this.emitConfigChanged({
+      ...this.config,
+      type: this.config.type || 'custom:guardian-alerts-card',
+      alerts: nextAlerts,
+    });
   }
 
   private addRule(): void {
-    const existing = this.config?.alerts || [];
-    const firstEntity = Object.keys(this.hass?.states || {})[0] || 'binary_sensor.example';
-    this.emitConfigChanged([
-      ...existing,
-      {
-        entity: firstEntity,
-        state: 'on',
-        template: 'WARNING',
-        message: 'New Guardian Alert',
-      },
-    ]);
+    if (!this.config) return;
+    const existing = this.config.alerts || [];
+
+    this.emitConfigChanged({
+      ...this.config,
+      type: this.config.type || 'custom:guardian-alerts-card',
+      alerts: [
+        ...existing,
+        {
+          entity: '',
+          state: '',
+          template: 'WARNING',
+          message: 'New Guardian Alert',
+        },
+      ],
+    });
   }
 
   private removeRule(index: number): void {
     if (!this.config) return;
-    const next = this.config.alerts.filter((_, i) => i !== index);
-    this.emitConfigChanged(next);
+    const nextAlerts = this.config.alerts.filter((_, i) => i !== index);
+    this.emitConfigChanged({
+      ...this.config,
+      type: this.config.type || 'custom:guardian-alerts-card',
+      alerts: nextAlerts,
+    });
   }
 
   private normalizeOnActiveList(rule: AlertRule): ServiceCallConfig[] {
     if (!rule.on_active) return [];
     if (Array.isArray(rule.on_active)) {
       return rule.on_active.map((item) => ({
-        service: item.service || '',
+        service: item.service || item.perform_action || '',
         target: item.target,
         service_data: item.service_data ?? item.data,
       }));
     }
-    if (rule.on_active.service) {
+    const single = rule.on_active as ServiceCallConfig;
+    if (single.service || single.perform_action) {
       return [
         {
-          service: rule.on_active.service,
-          target: rule.on_active.target,
-          service_data: rule.on_active.service_data ?? rule.on_active.data,
+          service: single.service || single.perform_action || '',
+          target: single.target,
+          service_data: single.service_data ?? single.data,
         },
       ];
     }
@@ -91,146 +408,163 @@ export class GuardianAlertsCardEditor extends LitElement {
     if (!this.config) return;
     const rule = this.config.alerts[ruleIndex];
     const current = this.normalizeOnActiveList(rule);
-    this.updateRule(ruleIndex, {
-      on_active: [
-        ...current,
-        {
-          service: 'scene.turn_on',
-          target: { entity_id: '' },
-        },
-      ],
+    const nextAlerts = this.config.alerts.map((r, i) =>
+      i === ruleIndex
+        ? {
+            ...r,
+            on_active: [
+              ...current,
+              {
+                service: 'scene.turn_on',
+              },
+            ],
+          }
+        : r
+    );
+    this.emitConfigChanged({
+      ...this.config,
+      alerts: nextAlerts,
     });
   }
 
-  private updateOnActiveService(
+  private onServiceCallFormChanged(
     ruleIndex: number,
     serviceIndex: number,
-    field: 'service' | 'entity_id' | 'message',
-    value: string
+    ev: CustomEvent
   ): void {
+    ev.stopPropagation();
     if (!this.config) return;
+    const value = ev.detail?.value;
+    if (!value) return;
+
     const rule = this.config.alerts[ruleIndex];
     const list = this.normalizeOnActiveList(rule).map((svc, idx) => {
       if (idx !== serviceIndex) return svc;
-      const next: ServiceCallConfig = { ...svc };
-      if (field === 'service') {
-        next.service = value;
-      } else if (field === 'entity_id') {
-        if (value.trim()) {
-          next.target = { ...(next.target || {}), entity_id: value.trim() };
-        } else {
-          delete next.target;
-        }
-      } else if (field === 'message') {
-        const currentData = { ...(next.service_data || {}) };
-        if (value.trim()) {
-          currentData.message = value;
-          next.service_data = currentData;
-        } else {
-          delete currentData.message;
-          next.service_data = Object.keys(currentData).length > 0 ? currentData : undefined;
-        }
+      const next: ServiceCallConfig = {
+        ...svc,
+        service: value.service ?? svc.service ?? '',
+      };
+
+      const targetObj = value.target;
+      if (
+        targetObj &&
+        typeof targetObj === 'object' &&
+        Object.keys(targetObj).some((k) => {
+          const v = targetObj[k];
+          return Array.isArray(v) ? v.length > 0 : Boolean(v);
+        })
+      ) {
+        next.target = targetObj;
+      } else {
+        delete next.target;
       }
+
+      const currentData = { ...(next.service_data || {}) };
+      if (typeof value.message === 'string' && value.message.trim() !== '') {
+        currentData.message = value.message;
+        next.service_data = currentData;
+      } else {
+        delete currentData.message;
+        next.service_data = Object.keys(currentData).length > 0 ? currentData : undefined;
+      }
+
       return next;
     });
-    this.updateRule(ruleIndex, { on_active: list.length > 0 ? list : undefined });
+
+    const nextAlerts = this.config.alerts.map((r, i) =>
+      i === ruleIndex ? { ...r, on_active: list.length > 0 ? list : undefined } : r
+    );
+    this.emitConfigChanged({
+      ...this.config,
+      alerts: nextAlerts,
+    });
   }
 
   private removeOnActiveService(ruleIndex: number, serviceIndex: number): void {
     if (!this.config) return;
     const rule = this.config.alerts[ruleIndex];
     const list = this.normalizeOnActiveList(rule).filter((_, idx) => idx !== serviceIndex);
-    this.updateRule(ruleIndex, { on_active: list.length > 0 ? list : undefined });
+    const nextAlerts = this.config.alerts.map((r, i) =>
+      i === ruleIndex ? { ...r, on_active: list.length > 0 ? list : undefined } : r
+    );
+    this.emitConfigChanged({
+      ...this.config,
+      alerts: nextAlerts,
+    });
   }
 
   protected render() {
     if (!this.config) return nothing;
-    const entityIds = Object.keys(this.hass?.states || {}).sort();
+
+    const showDefault = this.config.show_default_alert !== false;
+    const defaultAlertData = {
+      show_default_alert: showDefault,
+      message: this.config.default_alert?.message ?? 'All Secured',
+      template: (this.config.default_alert?.template || 'SECURE').toUpperCase(),
+      icon: this.config.default_alert?.icon || 'mdi:shield-check',
+      entity: this.config.default_alert?.entity || '',
+    };
 
     return html`
       <div class="editor-container">
-        <datalist id="ha-entities-list">
-          ${entityIds.map((id) => html`<option value="${id}"></option>`)}
-        </datalist>
+        <!-- Default "All Secured" Banner Section -->
+        <div class="rule-card secure-card">
+          <div class="rule-header">
+            <span class="rule-title">🛡️ Default Rule (When All Secured)</span>
+          </div>
+          <ha-form
+            .hass=${this.hass}
+            .data=${defaultAlertData}
+            .schema=${this.getDefaultAlertSchema(showDefault)}
+            .computeLabel=${this.computeLabel}
+            .computeHelper=${this.computeHelper}
+            @value-changed=${(ev: CustomEvent) => this.onDefaultAlertFormChanged(ev)}
+          ></ha-form>
+        </div>
 
+        <!-- Alert Rules Section -->
         ${this.config.alerts.map((rule, index) => {
           const tpl = getTemplate(rule.template || rule.severity);
           const services = this.normalizeOnActiveList(rule);
+          const entityStateObj = rule.entity ? this.hass?.states?.[rule.entity] : undefined;
+          const unit = entityStateObj?.attributes?.unit_of_measurement;
+          const liveStateDisplay =
+            entityStateObj?.state !== undefined
+              ? `${entityStateObj.state}${unit ? ` ${unit}` : ''}`
+              : undefined;
+
+          const ruleFormData = {
+            entity: rule.entity || '',
+            state: rule.state !== undefined && rule.state !== null ? String(rule.state) : '',
+            template: (rule.template || rule.severity || 'INFO').toUpperCase(),
+            icon: rule.icon || '',
+            message: rule.message || '',
+            tap_action: !Array.isArray(rule.tap_action)
+              ? rule.tap_action || { action: 'more-info' }
+              : { action: 'more-info' },
+          };
 
           return html`
             <div class="rule-card">
               <div class="rule-header">
-                <span class="rule-title">Alert #${index + 1} (${tpl.name})</span>
+                <span class="rule-title">Alert Rule #${index + 1} (${tpl.name})</span>
                 <button
                   type="button"
                   class="btn-danger"
                   @click=${() => this.removeRule(index)}
                 >
-                  Remove
+                  Remove Rule
                 </button>
               </div>
 
-              <div class="grid">
-                <label class="field">
-                  <span>Entity</span>
-                  <input
-                    type="text"
-                    list="ha-entities-list"
-                    .value=${rule.entity || ''}
-                    placeholder="binary_sensor.garage_door"
-                    @input=${(e: Event) =>
-                      this.updateRule(index, { entity: (e.target as HTMLInputElement).value })}
-                  />
-                </label>
-
-                <label class="field">
-                  <span>Trigger State</span>
-                  <input
-                    type="text"
-                    .value=${rule.state || ''}
-                    placeholder="on / triggered"
-                    @input=${(e: Event) =>
-                      this.updateRule(index, { state: (e.target as HTMLInputElement).value })}
-                  />
-                </label>
-
-                <label class="field">
-                  <span>Template</span>
-                  <select
-                    .value=${(rule.template || rule.severity || 'INFO').toUpperCase()}
-                    @change=${(e: Event) =>
-                      this.updateRule(index, {
-                        template: (e.target as HTMLSelectElement).value as AlertSeverity,
-                      })}
-                  >
-                    <option value="INFO">INFO (Static)</option>
-                    <option value="WARNING">WARNING (Slow Flash)</option>
-                    <option value="CRITICAL">CRITICAL (Slow Flash)</option>
-                  </select>
-                </label>
-
-                <label class="field">
-                  <span>Icon (blank = default ${tpl.defaultIcon})</span>
-                  <input
-                    type="text"
-                    .value=${rule.icon || ''}
-                    placeholder="Default: ${tpl.defaultIcon}"
-                    @input=${(e: Event) =>
-                      this.updateRule(index, { icon: (e.target as HTMLInputElement).value })}
-                  />
-                </label>
-              </div>
-
-              <label class="field full">
-                <span>Alert Message</span>
-                <input
-                  type="text"
-                  .value=${rule.message || ''}
-                  placeholder="Garage door opened"
-                  @input=${(e: Event) =>
-                    this.updateRule(index, { message: (e.target as HTMLInputElement).value })}
-                />
-              </label>
+              <ha-form
+                .hass=${this.hass}
+                .data=${ruleFormData}
+                .schema=${this.getRuleSchema(rule.entity, tpl.defaultIcon, liveStateDisplay)}
+                .computeLabel=${this.computeLabel}
+                .computeHelper=${this.computeHelper}
+                @value-changed=${(ev: CustomEvent) => this.onRuleFormChanged(index, ev)}
+              ></ha-form>
 
               <div class="services-section">
                 <div class="services-header">
@@ -245,61 +579,34 @@ export class GuardianAlertsCardEditor extends LitElement {
                 </div>
 
                 ${services.map((svc, sIdx) => {
-                  const targetEntity =
-                    typeof svc.target?.entity_id === 'string'
-                      ? svc.target.entity_id
-                      : Array.isArray(svc.target?.entity_id)
-                        ? svc.target?.entity_id.join(', ')
-                        : '';
-                  const msgParam = svc.service_data?.message ?? '';
+                  const svcFormData = {
+                    service: svc.service || '',
+                    target: svc.target || {},
+                    message: svc.service_data?.message ?? '',
+                  };
 
                   return html`
-                    <div class="service-row">
-                      <input
-                        type="text"
-                        .value=${svc.service || ''}
-                        placeholder="Service (e.g. scene.turn_on or script.tts_announce)"
-                        @input=${(e: Event) =>
-                          this.updateOnActiveService(
-                            index,
-                            sIdx,
-                            'service',
-                            (e.target as HTMLInputElement).value
-                          )}
-                      />
-                      <input
-                        type="text"
-                        list="ha-entities-list"
-                        .value=${targetEntity}
-                        placeholder="Target entity_id (optional, e.g. scene.alert)"
-                        @input=${(e: Event) =>
-                          this.updateOnActiveService(
-                            index,
-                            sIdx,
-                            'entity_id',
-                            (e.target as HTMLInputElement).value
-                          )}
-                      />
-                      <input
-                        type="text"
-                        .value=${msgParam}
-                        placeholder="Message param (optional, e.g. {{ message }})"
-                        @input=${(e: Event) =>
-                          this.updateOnActiveService(
-                            index,
-                            sIdx,
-                            'message',
-                            (e.target as HTMLInputElement).value
-                          )}
-                      />
-                      <button
-                        type="button"
-                        class="btn-danger-sm"
-                        title="Remove Service"
-                        @click=${() => this.removeOnActiveService(index, sIdx)}
-                      >
-                        ✕
-                      </button>
+                    <div class="service-card">
+                      <div class="service-card-header">
+                        <span>Service Call #${sIdx + 1}</span>
+                        <button
+                          type="button"
+                          class="btn-danger-sm"
+                          title="Remove Service Call"
+                          @click=${() => this.removeOnActiveService(index, sIdx)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <ha-form
+                        .hass=${this.hass}
+                        .data=${svcFormData}
+                        .schema=${this.getServiceCallSchema(svc.service)}
+                        .computeLabel=${this.computeLabel}
+                        .computeHelper=${this.computeHelper}
+                        @value-changed=${(ev: CustomEvent) =>
+                          this.onServiceCallFormChanged(index, sIdx, ev)}
+                      ></ha-form>
                     </div>
                   `;
                 })}
@@ -319,7 +626,7 @@ export class GuardianAlertsCardEditor extends LitElement {
     .editor-container {
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
       padding: 8px 0;
       color: var(--primary-text-color, #f3f4f6);
     }
@@ -327,11 +634,15 @@ export class GuardianAlertsCardEditor extends LitElement {
     .rule-card {
       background: var(--secondary-background-color, rgba(255, 255, 255, 0.04));
       border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.12));
-      border-radius: 10px;
-      padding: 14px;
+      border-radius: 12px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 14px;
+    }
+
+    .secure-card {
+      border-color: color-mix(in srgb, var(--success-color, #22c55e) 40%, var(--divider-color, rgba(255, 255, 255, 0.12)));
     }
 
     .rule-header {
@@ -339,65 +650,43 @@ export class GuardianAlertsCardEditor extends LitElement {
       justify-content: space-between;
       align-items: center;
       font-weight: 700;
-      font-size: 0.9rem;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 10px;
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 0.78rem;
-      color: var(--secondary-text-color, #9ca3af);
-    }
-
-    .field.full {
-      width: 100%;
-    }
-
-    input,
-    select {
-      background: var(--card-background-color, #1e293b);
-      color: var(--primary-text-color, #f3f4f6);
-      border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.18));
-      border-radius: 6px;
-      padding: 7px 10px;
-      font-size: 0.85rem;
-      outline: none;
-    }
-
-    input:focus,
-    select:focus {
-      border-color: var(--primary-color, #38bdf8);
+      font-size: 0.95rem;
     }
 
     .services-section {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      padding-top: 6px;
-      border-top: 1px dashed var(--divider-color, rgba(255, 255, 255, 0.12));
+      gap: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--divider-color, rgba(255, 255, 255, 0.16));
     }
 
     .services-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       font-weight: 600;
       color: var(--secondary-text-color, #9ca3af);
     }
 
-    .service-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr auto;
-      gap: 6px;
+    .service-card {
+      background: var(--card-background-color, rgba(15, 23, 42, 0.45));
+      border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.1));
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .service-card-header {
+      display: flex;
+      justify-content: space-between;
       align-items: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--secondary-text-color, #9ca3af);
     }
 
     button {
@@ -412,7 +701,7 @@ export class GuardianAlertsCardEditor extends LitElement {
     .btn-primary {
       background: var(--primary-color, #0284c7);
       color: #fff;
-      padding: 10px 14px;
+      padding: 10px 16px;
       align-self: flex-start;
     }
 
@@ -431,8 +720,7 @@ export class GuardianAlertsCardEditor extends LitElement {
     .btn-danger-sm {
       background: rgba(239, 68, 68, 0.15);
       color: #f87171;
-      padding: 6px 9px;
+      padding: 4px 10px;
     }
   `;
 }
-

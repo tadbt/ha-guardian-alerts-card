@@ -31,8 +31,12 @@ function invokeService(
     call: ServiceCallConfig,
     context: { entity?: string; message?: string }
 ): void {
-    if (!call.service) return;
-    const [domain, service] = call.service.split('.');
+    const rawService =
+        call.service ||
+        call.perform_action ||
+        (call.action && call.action.includes('.') ? call.action : undefined);
+    if (!rawService) return;
+    const [domain, service] = rawService.split('.');
     if (!domain || !service) return;
     const payload = interpolateData(call.service_data ?? call.data, context);
     hass.callService(domain, service, payload, call.target);
@@ -50,11 +54,21 @@ function executeSingleAction(
         for (const svc of actionConfig.services) {
             invokeService(hass, svc, context);
         }
-        if (!actionConfig.service) return;
+        if (!actionConfig.service && !actionConfig.perform_action) return;
     }
 
-    // Default to 'call-service' when a `service` key is present without an explicit `action`
-    const actionType = actionConfig.action ?? (actionConfig.service ? 'call-service' : 'none');
+    // Default to 'call-service' when a `service` or `perform_action` key is present without an explicit `action`
+    const hasService = Boolean(
+        actionConfig.service ||
+            actionConfig.perform_action ||
+            (actionConfig.action && actionConfig.action.includes('.'))
+    );
+    const actionType =
+        actionConfig.action && !actionConfig.action.includes('.')
+            ? actionConfig.action
+            : hasService
+              ? 'call-service'
+              : 'none';
     if (actionType === 'none') return;
 
     switch (actionType) {
@@ -67,6 +81,13 @@ function executeSingleAction(
                 detail: { entityId: Array.isArray(entityId) ? entityId[0] : entityId },
             });
             window.dispatchEvent(event);
+            break;
+        }
+
+        case 'toggle': {
+            const entityId = (actionConfig.target as TargetConfig | undefined)?.entity_id || context.entity;
+            if (!entityId) return;
+            hass.callService('homeassistant', 'toggle', undefined, { entity_id: entityId });
             break;
         }
 
@@ -86,6 +107,7 @@ function executeSingleAction(
             break;
         }
 
+        case 'perform-action':
         case 'call-service': {
             invokeService(hass, actionConfig as ServiceCallConfig, context);
             break;

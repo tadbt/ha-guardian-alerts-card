@@ -18,6 +18,7 @@
             --ha-card-background: #1e293b;
             --card-background-color: #1e293b;
             --state-icon-color: #e2e8f0;
+            --success-color: #22c55e;
             --info-color: #38bdf8;
             --warning-color: #f59e0b;
             --error-color: #ef4444;
@@ -101,6 +102,7 @@
         <button id="toggle-door">Toggle Garage Door (WARNING)</button>
         <button id="toggle-alarm">Toggle Main Alarm (CRITICAL)</button>
         <button id="toggle-info">Toggle Disarmed Banner (INFO)</button>
+        <button id="clear-all">Clear All Alerts (All Secured)</button>
         <button id="cycle-theme">Switch Theme (DefaultDark)</button>
     </div>
 
@@ -130,6 +132,8 @@
 
         // Map common MDI icon names to Material Symbols for the local standalone browser preview
         const mdiToMaterialMap = {
+            'shield_check': 'verified_user',
+            'shield': 'shield',
             'information_outline': 'info',
             'information': 'info',
             'alert_outline': 'warning',
@@ -279,6 +283,23 @@
                 state: next,
             };
             appendLog(`State binary_sensor.front_porch_motion -> ${next}`);
+            card.hass = { ...mockHass, states: { ...mockHass.states } };
+        });
+
+        document.getElementById('clear-all').addEventListener('click', () => {
+            mockHass.states['binary_sensor.garage_entry_door'] = {
+                ...mockHass.states['binary_sensor.garage_entry_door'],
+                state: 'off',
+            };
+            mockHass.states['alarm_control_panel.main_alarm'] = {
+                ...mockHass.states['alarm_control_panel.main_alarm'],
+                state: 'disarmed',
+            };
+            mockHass.states['binary_sensor.front_porch_motion'] = {
+                ...mockHass.states['binary_sensor.front_porch_motion'],
+                state: 'off',
+            };
+            appendLog('All sensors cleared -> showing default "All Secured" banner');
             card.hass = { ...mockHass, states: { ...mockHass.states } };
         });
 

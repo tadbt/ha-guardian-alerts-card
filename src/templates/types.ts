@@ -7,17 +7,20 @@ export interface TargetConfig {
 }
 
 export interface ServiceCallConfig {
-    service: string;
+    service?: string;
+    perform_action?: string;
+    action?: string;
     service_data?: Record<string, any>;
     data?: Record<string, any>;
     target?: TargetConfig;
 }
 
 export interface ActionConfig {
-    action?: 'more-info' | 'navigate' | 'url' | 'call-service' | 'none';
+    action?: 'more-info' | 'toggle' | 'navigate' | 'url' | 'call-service' | 'perform-action' | 'none' | string;
     navigation_path?: string;
     url_path?: string;
     service?: string;
+    perform_action?: string;
     service_data?: Record<string, any>;
     data?: Record<string, any>;
     target?: TargetConfig;

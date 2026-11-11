@@ -43,18 +43,19 @@ export class GuardianAlertsCard extends LitElement {
     return document.createElement('guardian-alerts-card-editor');
   }
 
-  public static getStubConfig(hass?: HomeAssistant): GuardianAlertsCardConfig {
-    const sampleEntity =
-      Object.keys(hass?.states || {}).find((id) => id.startsWith('binary_sensor.')) ||
-      Object.keys(hass?.states || {})[0] ||
-      'binary_sensor.garage_entry_door';
-
+  public static getStubConfig(): GuardianAlertsCardConfig {
     return {
       type: 'custom:guardian-alerts-card',
+      show_default_alert: true,
+      default_alert: {
+        template: 'SECURE',
+        message: 'All Secured',
+        icon: 'mdi:shield-check',
+      },
       alerts: [
         {
-          entity: sampleEntity,
-          state: 'on',
+          entity: '',
+          state: '',
           template: 'WARNING',
           message: 'Guardian Alert Triggered',
         },
@@ -63,19 +64,64 @@ export class GuardianAlertsCard extends LitElement {
   }
 
   public setConfig(config: GuardianAlertsCardConfig): void {
-    if (!config?.alerts) throw new Error('Define an "alerts" array in your configuration');
-    this.config = config;
+    if (!config) throw new Error('Invalid configuration');
+    this.config = {
+      ...config,
+      alerts: Array.isArray(config.alerts) ? config.alerts : [],
+    };
     this.activeRuleKeys.clear();
     this.hasInitializedStates = false;
   }
 
   private getRuleKey(rule: AlertRule, index: number): string {
-    return `${index}:${rule.entity}:${rule.state.toLowerCase()}`;
+    return `${index}:${rule.entity || ''}:${String(rule.state ?? '').toLowerCase()}`;
   }
 
   private isRuleActive(rule: AlertRule): boolean {
+    if (!rule.entity || rule.state === undefined || rule.state === null) return false;
+    const expectedRaw = String(rule.state).trim();
+    if (expectedRaw === '') return false;
+
     const stateObj = this.hass?.states?.[rule.entity];
-    return Boolean(stateObj && stateObj.state.toLowerCase() === rule.state.toLowerCase());
+    if (!stateObj || stateObj.state === undefined || stateObj.state === null) return false;
+    const actualRaw = String(stateObj.state).trim();
+
+    // Support numeric or state comparison operators: >, >=, <, <=, !=, ==
+    const opMatch = expectedRaw.match(/^(>=|<=|!=|==|>|<)\s*(.+)$/);
+    if (opMatch) {
+      const [, op, rhsRaw] = opMatch;
+      const actualNum = Number(actualRaw);
+      const rhsNum = Number(rhsRaw);
+      if (actualRaw !== '' && rhsRaw.trim() !== '' && !Number.isNaN(actualNum) && !Number.isNaN(rhsNum)) {
+        if (op === '>') return actualNum > rhsNum;
+        if (op === '>=') return actualNum >= rhsNum;
+        if (op === '<') return actualNum < rhsNum;
+        if (op === '<=') return actualNum <= rhsNum;
+        if (op === '==') return actualNum === rhsNum;
+        if (op === '!=') return actualNum !== rhsNum;
+      }
+      if (op === '!=') return actualRaw.toLowerCase() !== rhsRaw.trim().toLowerCase();
+      if (op === '==') return actualRaw.toLowerCase() === rhsRaw.trim().toLowerCase();
+    }
+
+    // Support numeric equality (e.g., 23 matches "23" or "23.0")
+    const actualNum = Number(actualRaw);
+    const expectedNum = Number(expectedRaw);
+    if (actualRaw !== '' && !Number.isNaN(actualNum) && !Number.isNaN(expectedNum)) {
+      return actualNum === expectedNum;
+    }
+
+    return actualRaw.toLowerCase() === expectedRaw.toLowerCase();
+  }
+
+  private formatMessage(rule: AlertRule): string {
+    const rawMsg = rule.message || '';
+    if (!rule.entity) return rawMsg;
+    const stateObj = this.hass?.states?.[rule.entity];
+    const currentVal = stateObj?.state ?? '';
+    return rawMsg
+      .replace(/\{\{\s*state\s*\}\}/g, String(currentVal))
+      .replace(/\{\{\s*entity\s*\}\}/g, rule.entity);
   }
 
   protected updated(changedProps: PropertyValues): void {
@@ -97,7 +143,7 @@ export class GuardianAlertsCard extends LitElement {
               hass: this.hass,
               config: rule.on_active,
               defaultEntity: rule.entity,
-              defaultMessage: rule.message,
+              defaultMessage: this.formatMessage(rule),
             });
           }
         }
@@ -116,7 +162,7 @@ export class GuardianAlertsCard extends LitElement {
         hass: this.hass,
         config: rule.hold_action || { action: 'more-info' },
         defaultEntity: rule.entity,
-        defaultMessage: rule.message,
+        defaultMessage: this.formatMessage(rule),
       });
     }, 500); // 500ms hold threshold
   }
@@ -128,7 +174,7 @@ export class GuardianAlertsCard extends LitElement {
         hass: this.hass,
         config: rule.tap_action || { action: 'more-info' },
         defaultEntity: rule.entity,
-        defaultMessage: rule.message,
+        defaultMessage: this.formatMessage(rule),
       });
     }
   }
@@ -141,13 +187,34 @@ export class GuardianAlertsCard extends LitElement {
   protected render() {
     if (!this.hass || !this.config) return nothing;
 
-    const activeRules = this.config.alerts.filter((rule) => this.isRuleActive(rule));
+    const activeRules = (this.config.alerts || []).filter((rule) => this.isRuleActive(rule));
 
-    if (activeRules.length === 0) return nothing;
+    let rulesToRender: AlertRule[] = activeRules;
+    if (rulesToRender.length === 0) {
+      if (this.config.show_default_alert === false) return nothing;
+
+      const defaultAlert = this.config.default_alert;
+      rulesToRender = [
+        {
+          entity: defaultAlert?.entity || this.config.alerts?.[0]?.entity || '',
+          state: '',
+          template: defaultAlert?.template || 'SECURE',
+          message: defaultAlert?.message || 'All Secured',
+          icon: defaultAlert?.icon || 'mdi:shield-check',
+          icon_color: defaultAlert?.icon_color,
+          tap_action:
+            defaultAlert?.tap_action ||
+            (defaultAlert?.entity ? { action: 'more-info' } : { action: 'none' }),
+          hold_action:
+            defaultAlert?.hold_action ||
+            (defaultAlert?.entity ? { action: 'more-info' } : { action: 'none' }),
+        },
+      ];
+    }
 
     return html`
       <div class="card-container">
-        ${activeRules.map((rule) => {
+        ${rulesToRender.map((rule) => {
           const tpl = getTemplate(rule.template || rule.severity);
           const icon = rule.icon?.trim() || tpl.defaultIcon;
 
@@ -165,7 +232,7 @@ export class GuardianAlertsCard extends LitElement {
                 </div>
                 <div class="content">
                   <span class="badge">${tpl.name}</span>
-                  <span class="message">${rule.message}</span>
+                  <span class="message">${this.formatMessage(rule)}</span>
                 </div>
                 <span class="bottom-ribbon" aria-hidden="true"></span>
               </div>
@@ -178,6 +245,7 @@ export class GuardianAlertsCard extends LitElement {
 
   static styles = [
     baseCardStyles,
+    getTemplate('SECURE').styles,
     getTemplate('INFO').styles,
     getTemplate('WARNING').styles,
     getTemplate('CRITICAL').styles,

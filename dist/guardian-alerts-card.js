@@ -253,22 +253,22 @@ var v = class extends HTMLElement {
 };
 v.elementStyles = [], v.shadowRootOptions = { mode: "open" }, v[m("elementProperties")] = /* @__PURE__ */ new Map(), v[m("finalized")] = /* @__PURE__ */ new Map(), ie?.({ ReactiveElement: v }), (f.reactiveElementVersions ??= []).push("2.1.2");
 // node_modules/lit-html/lit-html.js
-var y = globalThis, b = (e) => e, x = y.trustedTypes, ae = x ? x.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, S = "$lit$", C = `lit$${Math.random().toFixed(9).slice(2)}$`, w = "?" + C, oe = `<${w}>`, T = document, E = () => T.createComment(""), D = (e) => e === null || typeof e != "object" && typeof e != "function", O = Array.isArray, se = (e) => O(e) || typeof e?.[Symbol.iterator] == "function", k = "[ 	\n\f\r]", A = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, ce = /-->/g, le = />/g, j = RegExp(`>|${k}(?:([^\\s"'>=/]+)(${k}*=${k}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`, "g"), ue = /'/g, de = /"/g, M = /^(?:script|style|textarea|title)$/i, N = ((e) => (t, ...n) => ({
+var y = globalThis, b = (e) => e, x = y.trustedTypes, S = x ? x.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, C = "$lit$", w = `lit$${Math.random().toFixed(9).slice(2)}$`, T = "?" + w, ae = `<${T}>`, E = document, D = () => E.createComment(""), O = (e) => e === null || typeof e != "object" && typeof e != "function", k = Array.isArray, oe = (e) => k(e) || typeof e?.[Symbol.iterator] == "function", A = "[ 	\n\f\r]", j = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, se = /-->/g, ce = />/g, M = RegExp(`>|${A}(?:([^\\s"'>=/]+)(${A}*=${A}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`, "g"), le = /'/g, ue = /"/g, de = /^(?:script|style|textarea|title)$/i, N = ((e) => (t, ...n) => ({
 	_$litType$: e,
 	strings: t,
 	values: n
-}))(1), P = Symbol.for("lit-noChange"), F = Symbol.for("lit-nothing"), I = /* @__PURE__ */ new WeakMap(), L = T.createTreeWalker(T, 129);
+}))(1), P = Symbol.for("lit-noChange"), F = Symbol.for("lit-nothing"), I = /* @__PURE__ */ new WeakMap(), L = E.createTreeWalker(E, 129);
 function R(e, t) {
-	if (!O(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
-	return ae === void 0 ? t : ae.createHTML(t);
+	if (!k(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
+	return S === void 0 ? t : S.createHTML(t);
 }
 var fe = (e, t) => {
-	let n = e.length - 1, r = [], i, a = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", o = A;
+	let n = e.length - 1, r = [], i, a = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", o = j;
 	for (let t = 0; t < n; t++) {
 		let n = e[t], s, c, l = -1, u = 0;
-		for (; u < n.length && (o.lastIndex = u, c = o.exec(n), c !== null);) u = o.lastIndex, o === A ? c[1] === "!--" ? o = ce : c[1] === void 0 ? c[2] === void 0 ? c[3] !== void 0 && (o = j) : (M.test(c[2]) && (i = RegExp("</" + c[2], "g")), o = j) : o = le : o === j ? c[0] === ">" ? (o = i ?? A, l = -1) : c[1] === void 0 ? l = -2 : (l = o.lastIndex - c[2].length, s = c[1], o = c[3] === void 0 ? j : c[3] === "\"" ? de : ue) : o === de || o === ue ? o = j : o === ce || o === le ? o = A : (o = j, i = void 0);
-		let d = o === j && e[t + 1].startsWith("/>") ? " " : "";
-		a += o === A ? n + oe : l >= 0 ? (r.push(s), n.slice(0, l) + S + n.slice(l) + C + d) : n + C + (l === -2 ? t : d);
+		for (; u < n.length && (o.lastIndex = u, c = o.exec(n), c !== null);) u = o.lastIndex, o === j ? c[1] === "!--" ? o = se : c[1] === void 0 ? c[2] === void 0 ? c[3] !== void 0 && (o = M) : (de.test(c[2]) && (i = RegExp("</" + c[2], "g")), o = M) : o = ce : o === M ? c[0] === ">" ? (o = i ?? j, l = -1) : c[1] === void 0 ? l = -2 : (l = o.lastIndex - c[2].length, s = c[1], o = c[3] === void 0 ? M : c[3] === "\"" ? ue : le) : o === ue || o === le ? o = M : o === se || o === ce ? o = j : (o = M, i = void 0);
+		let d = o === M && e[t + 1].startsWith("/>") ? " " : "";
+		a += o === j ? n + ae : l >= 0 ? (r.push(s), n.slice(0, l) + C + n.slice(l) + w + d) : n + w + (l === -2 ? t : d);
 	}
 	return [R(e, a + (e[n] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), r];
 }, z = class e {
@@ -282,8 +282,8 @@ var fe = (e, t) => {
 		}
 		for (; (i = L.nextNode()) !== null && c.length < s;) {
 			if (i.nodeType === 1) {
-				if (i.hasAttributes()) for (let e of i.getAttributeNames()) if (e.endsWith(S)) {
-					let t = u[o++], n = i.getAttribute(e).split(C), r = /([.?@])?(.*)/.exec(t);
+				if (i.hasAttributes()) for (let e of i.getAttributeNames()) if (e.endsWith(C)) {
+					let t = u[o++], n = i.getAttribute(e).split(w), r = /([.?@])?(.*)/.exec(t);
 					c.push({
 						type: 1,
 						index: a,
@@ -291,45 +291,45 @@ var fe = (e, t) => {
 						strings: n,
 						ctor: r[1] === "." ? me : r[1] === "?" ? he : r[1] === "@" ? ge : H
 					}), i.removeAttribute(e);
-				} else e.startsWith(C) && (c.push({
+				} else e.startsWith(w) && (c.push({
 					type: 6,
 					index: a
 				}), i.removeAttribute(e));
-				if (M.test(i.tagName)) {
-					let e = i.textContent.split(C), t = e.length - 1;
+				if (de.test(i.tagName)) {
+					let e = i.textContent.split(w), t = e.length - 1;
 					if (t > 0) {
 						i.textContent = x ? x.emptyScript : "";
-						for (let n = 0; n < t; n++) i.append(e[n], E()), L.nextNode(), c.push({
+						for (let n = 0; n < t; n++) i.append(e[n], D()), L.nextNode(), c.push({
 							type: 2,
 							index: ++a
 						});
-						i.append(e[t], E());
+						i.append(e[t], D());
 					}
 				}
 			} else if (i.nodeType === 8) {
-				if (i.data === w) c.push({
+				if (i.data === T) c.push({
 					type: 2,
 					index: a
 				});
 				else {
 					let e = -1;
-					for (; (e = i.data.indexOf(C, e + 1)) !== -1;) c.push({
+					for (; (e = i.data.indexOf(w, e + 1)) !== -1;) c.push({
 						type: 7,
 						index: a
-					}), e += C.length - 1;
+					}), e += w.length - 1;
 				}
 			}
 			a++;
 		}
 	}
 	static createElement(e, t) {
-		let n = T.createElement("template");
+		let n = E.createElement("template");
 		return n.innerHTML = e, n;
 	}
 };
 function B(e, t, n = e, r) {
 	if (t === P) return t;
-	let i = r === void 0 ? n._$Cl : n._$Co?.[r], a = D(t) ? void 0 : t._$litDirective$;
+	let i = r === void 0 ? n._$Cl : n._$Co?.[r], a = O(t) ? void 0 : t._$litDirective$;
 	return i?.constructor !== a && (i?._$AO?.(!1), a === void 0 ? i = void 0 : (i = new a(e), i._$AT(e, n, r)), r === void 0 ? n._$Cl = i : (n._$Co ??= [])[r] = i), i !== void 0 && (t = B(e, i._$AS(e, t.values), i, r)), t;
 }
 var pe = class {
@@ -343,7 +343,7 @@ var pe = class {
 		return this._$AM._$AU;
 	}
 	u(e) {
-		let { el: { content: t }, parts: n } = this._$AD, r = (e?.creationScope ?? T).importNode(t, !0);
+		let { el: { content: t }, parts: n } = this._$AD, r = (e?.creationScope ?? E).importNode(t, !0);
 		L.currentNode = r;
 		let i = L.nextNode(), a = 0, o = 0, s = n[0];
 		for (; s !== void 0;) {
@@ -353,7 +353,7 @@ var pe = class {
 			}
 			a !== s?.index && (i = L.nextNode(), a++);
 		}
-		return L.currentNode = T, r;
+		return L.currentNode = E, r;
 	}
 	p(e) {
 		let t = 0;
@@ -377,7 +377,7 @@ var pe = class {
 		return this._$AB;
 	}
 	_$AI(e, t = this) {
-		e = B(this, e, t), D(e) ? e === F || e == null || e === "" ? (this._$AH !== F && this._$AR(), this._$AH = F) : e !== this._$AH && e !== P && this._(e) : e._$litType$ === void 0 ? e.nodeType === void 0 ? se(e) ? this.k(e) : this._(e) : this.T(e) : this.$(e);
+		e = B(this, e, t), O(e) ? e === F || e == null || e === "" ? (this._$AH !== F && this._$AR(), this._$AH = F) : e !== this._$AH && e !== P && this._(e) : e._$litType$ === void 0 ? e.nodeType === void 0 ? oe(e) ? this.k(e) : this._(e) : this.T(e) : this.$(e);
 	}
 	O(e) {
 		return this._$AA.parentNode.insertBefore(e, this._$AB);
@@ -386,7 +386,7 @@ var pe = class {
 		this._$AH !== e && (this._$AR(), this._$AH = this.O(e));
 	}
 	_(e) {
-		this._$AH !== F && D(this._$AH) ? this._$AA.nextSibling.data = e : this.T(T.createTextNode(e)), this._$AH = e;
+		this._$AH !== F && O(this._$AH) ? this._$AA.nextSibling.data = e : this.T(E.createTextNode(e)), this._$AH = e;
 	}
 	$(e) {
 		let { values: t, _$litType$: n } = e, r = typeof n == "number" ? this._$AC(e) : (n.el === void 0 && (n.el = z.createElement(R(n.h, n.h[0]), this.options)), n);
@@ -401,9 +401,9 @@ var pe = class {
 		return t === void 0 && I.set(e.strings, t = new z(e)), t;
 	}
 	k(t) {
-		O(this._$AH) || (this._$AH = [], this._$AR());
+		k(this._$AH) || (this._$AH = [], this._$AR());
 		let n = this._$AH, r, i = 0;
-		for (let a of t) i === n.length ? n.push(r = new e(this.O(E()), this.O(E()), this, this.options)) : r = n[i], r._$AI(a), i++;
+		for (let a of t) i === n.length ? n.push(r = new e(this.O(D()), this.O(D()), this, this.options)) : r = n[i], r._$AI(a), i++;
 		i < n.length && (this._$AR(r && r._$AB.nextSibling, i), n.length = i);
 	}
 	_$AR(e = this._$AA.nextSibling, t) {
@@ -427,10 +427,10 @@ var pe = class {
 	}
 	_$AI(e, t = this, n, r) {
 		let i = this.strings, a = !1;
-		if (i === void 0) e = B(this, e, t, 0), a = !D(e) || e !== this._$AH && e !== P, a && (this._$AH = e);
+		if (i === void 0) e = B(this, e, t, 0), a = !O(e) || e !== this._$AH && e !== P, a && (this._$AH = e);
 		else {
 			let r = e, o, s;
-			for (e = i[0], o = 0; o < i.length - 1; o++) s = B(this, r[n + o], t, o), s === P && (s = this._$AH[o]), a ||= !D(s) || s !== this._$AH[o], s === F ? e = F : e !== F && (e += (s ?? "") + i[o + 1]), this._$AH[o] = s;
+			for (e = i[0], o = 0; o < i.length - 1; o++) s = B(this, r[n + o], t, o), s === P && (s = this._$AH[o]), a ||= !O(s) || s !== this._$AH[o], s === F ? e = F : e !== F && (e += (s ?? "") + i[o + 1]), this._$AH[o] = s;
 		}
 		a && !r && this.j(e);
 	}
@@ -479,7 +479,7 @@ var ye = (e, t, n) => {
 	let r = n?.renderBefore ?? t, i = r._$litPart$;
 	if (i === void 0) {
 		let e = n?.renderBefore ?? null;
-		r._$litPart$ = i = new V(t.insertBefore(E(), e), e, void 0, n ?? {});
+		r._$litPart$ = i = new V(t.insertBefore(D(), e), e, void 0, n ?? {});
 	}
 	return i._$AI(e), i;
 }, U = globalThis, W = class extends v {
@@ -555,8 +555,23 @@ function q(e) {
 		attribute: !1
 	});
 }
-// src/templates/info.ts
+// src/templates/secure.ts
 var Ce = {
+	name: "SECURE",
+	defaultIcon: "mdi:shield-check",
+	styles: o`
+    /* SECURE remains static (no flashing) with a green theme-aware accent color */
+    .template-secure {
+      --template-accent-color: var(
+        --success-color,
+        var(--label-badge-green, #22c55e)
+      );
+      --surface-tint: 12%;
+      --facet-alpha-strong: 18%;
+      --facet-alpha-soft: 10%;
+    }
+  `
+}, we = {
 	name: "INFO",
 	defaultIcon: "mdi:information-outline",
 	styles: o`
@@ -571,7 +586,7 @@ var Ce = {
       --facet-alpha-soft: 8%;
     }
   `
-}, we = {
+}, Te = {
 	name: "WARNING",
 	defaultIcon: "mdi:alert",
 	styles: o`
@@ -612,7 +627,7 @@ var Ce = {
       }
     }
   `
-}, Te = {
+}, Ee = {
 	name: "CRITICAL",
 	defaultIcon: "mdi:shield-alert",
 	styles: o`
@@ -653,7 +668,7 @@ var Ce = {
       }
     }
   `
-}, Ee = o`
+}, De = o`
   :host {
     display: block;
     --base-surface: var(--ha-card-background, var(--card-background-color, #1e293b));
@@ -817,35 +832,37 @@ var Ce = {
     text-overflow: ellipsis;
   }
 `, J = {
-	INFO: Ce,
-	WARNING: we,
-	CRITICAL: Te
+	SECURE: Ce,
+	INFO: we,
+	WARNING: Te,
+	CRITICAL: Ee
 };
 function Y(e) {
 	return J[(e || "INFO").toUpperCase()] || J.INFO;
 }
 // src/utils/action-handler.ts
-function De(e, t) {
+function Oe(e, t) {
 	if (!e) return;
 	let n = {};
 	for (let [r, i] of Object.entries(e)) n[r] = typeof i == "string" ? i.replace(/\{\{\s*message\s*\}\}/g, t.message ?? "").replace(/\{\{\s*entity\s*\}\}/g, t.entity ?? "") : i;
 	return n;
 }
-function Oe(e, t, n) {
-	if (!t.service) return;
-	let [r, i] = t.service.split(".");
-	if (!r || !i) return;
-	let a = De(t.service_data ?? t.data, n);
-	e.callService(r, i, a, t.target);
-}
 function ke(e, t, n) {
+	let r = t.service || t.perform_action || (t.action && t.action.includes(".") ? t.action : void 0);
+	if (!r) return;
+	let [i, a] = r.split(".");
+	if (!i || !a) return;
+	let o = Oe(t.service_data ?? t.data, n);
+	e.callService(i, a, o, t.target);
+}
+function Ae(e, t, n) {
 	let r = t;
 	if (Array.isArray(r.services) && r.services.length > 0) {
-		for (let t of r.services) Oe(e, t, n);
-		if (!r.service) return;
+		for (let t of r.services) ke(e, t, n);
+		if (!r.service && !r.perform_action) return;
 	}
-	let i = r.action ?? (r.service ? "call-service" : "none");
-	if (i !== "none") switch (i) {
+	let i = !!(r.service || r.perform_action || r.action && r.action.includes(".")), a = r.action && !r.action.includes(".") ? r.action : i ? "call-service" : "none";
+	if (a !== "none") switch (a) {
 		case "more-info": {
 			let e = r.target?.entity_id || n.entity;
 			if (!e) return;
@@ -855,6 +872,12 @@ function ke(e, t, n) {
 				detail: { entityId: Array.isArray(e) ? e[0] : e }
 			});
 			window.dispatchEvent(t);
+			break;
+		}
+		case "toggle": {
+			let t = r.target?.entity_id || n.entity;
+			if (!t) return;
+			e.callService("homeassistant", "toggle", void 0, { entity_id: t });
 			break;
 		}
 		case "navigate": {
@@ -870,7 +893,8 @@ function ke(e, t, n) {
 		case "url":
 			r.url_path && window.open(r.url_path);
 			break;
-		case "call-service": Oe(e, r, n);
+		case "perform-action":
+		case "call-service": ke(e, r, n);
 	}
 }
 function X({ hass: e, config: t, defaultEntity: n, defaultMessage: r }) {
@@ -879,8 +903,8 @@ function X({ hass: e, config: t, defaultEntity: n, defaultMessage: r }) {
 		entity: n,
 		message: r
 	};
-	if (Array.isArray(t)) for (let n of t) n && ke(e, n, i);
-	else ke(e, t, i);
+	if (Array.isArray(t)) for (let n of t) n && Ae(e, n, i);
+	else Ae(e, t, i);
 }
 // \0@oxc-project+runtime@0.156.0/helpers/esm/decorate.js
 function Z(e, t, n, r) {
@@ -890,170 +914,377 @@ function Z(e, t, n, r) {
 	return i > 3 && a && Object.defineProperty(t, n, a), a;
 }
 // src/editor.ts
-var Q = class extends W {
+var je = [
+	{
+		value: "SECURE",
+		label: "SECURE (Green — Static Shield)"
+	},
+	{
+		value: "INFO",
+		label: "INFO (Blue — Static)"
+	},
+	{
+		value: "WARNING",
+		label: "WARNING (Amber — Slow Flash)"
+	},
+	{
+		value: "CRITICAL",
+		label: "CRITICAL (Red — Slow Flash)"
+	}
+], Q = class extends W {
+	constructor(...e) {
+		super(...e), this.defaultSchemaCache = /* @__PURE__ */ new Map(), this.ruleSchemaCache = /* @__PURE__ */ new Map(), this.serviceSchemaCache = /* @__PURE__ */ new Map(), this.cachedServiceOptions = [], this.computeLabel = (e) => e.label || e.name, this.computeHelper = (e) => e.helper || "";
+	}
+	connectedCallback() {
+		super.connectedCallback(), this.ensureHaComponentsLoaded();
+	}
+	async ensureHaComponentsLoaded() {
+		if (!(customElements.get("ha-form") && customElements.get("ha-entity-picker"))) try {
+			let e = window.loadCardHelpers;
+			typeof e == "function" && (await (await (await e()).createCardElement({
+				type: "entities",
+				entities: []
+			}))?.constructor?.getConfigElement?.(), this.requestUpdate());
+		} catch {}
+	}
 	setConfig(e) {
 		this.config = {
 			...e,
+			show_default_alert: e?.show_default_alert ?? !0,
+			default_alert: {
+				template: "SECURE",
+				message: "All Secured",
+				icon: "mdi:shield-check",
+				...e?.default_alert || {}
+			},
 			alerts: Array.isArray(e?.alerts) ? e.alerts.map((e) => ({ ...e })) : []
 		};
 	}
 	emitConfigChanged(e) {
-		if (!this.config) return;
-		let t = {
-			...this.config,
-			type: this.config.type || "custom:guardian-alerts-card",
-			alerts: e
-		};
-		this.config = t, this.dispatchEvent(new CustomEvent("config-changed", {
-			detail: { config: t },
+		this.config = e, this.dispatchEvent(new CustomEvent("config-changed", {
+			detail: { config: e },
 			bubbles: !0,
 			composed: !0
 		}));
 	}
-	updateRule(e, t) {
-		if (!this.config) return;
-		let n = this.config.alerts.map((n, r) => {
-			if (r !== e) return n;
-			let i = {
-				...n,
-				...t
-			};
-			return i.icon && i.icon.trim() !== "" || delete i.icon, i;
+	getDefaultAlertSchema(e) {
+		let t = this.defaultSchemaCache.get(e);
+		if (t) return t;
+		let n = [{
+			name: "show_default_alert",
+			label: "Show \"All Secured\" banner when no alerts are active",
+			selector: { boolean: {} }
+		}];
+		return e && n.push({
+			name: "message",
+			label: "Default Secured Message",
+			selector: { text: {} }
+		}, {
+			name: "template",
+			label: "Default Banner Color / Template",
+			selector: { select: {
+				mode: "dropdown",
+				options: je
+			} }
+		}, {
+			name: "icon",
+			label: "Default Shield Icon",
+			selector: { icon: { placeholder: "mdi:shield-check" } }
+		}, {
+			name: "entity",
+			label: "Optional Entity (for Tap More-Info)",
+			selector: { entity: {} }
+		}), this.defaultSchemaCache.set(e, n), n;
+	}
+	getRuleSchema(e, t, n) {
+		let r = (e || "").trim(), i = `${r}::${t}::${n || ""}`, a = this.ruleSchemaCache.get(i);
+		if (a) return a;
+		let o = [
+			{
+				name: "entity",
+				label: "Entity (Search any sensor or entity)",
+				required: !0,
+				selector: { entity: {} }
+			},
+			{
+				name: "state",
+				label: n ? `Trigger State / Value (Current: ${n})` : "Trigger State / Value (e.g. on, home, 75, > 80, < 20)",
+				helper: "Pick an entity state or enter any value / numeric comparison (e.g. > 80, < 20)",
+				required: !0,
+				selector: r ? { state: { entity_id: r } } : { text: {} }
+			},
+			{
+				name: "template",
+				label: "Alert Template / Severity Color",
+				selector: { select: {
+					mode: "dropdown",
+					options: je
+				} }
+			},
+			{
+				name: "icon",
+				label: `Icon (default: ${t})`,
+				selector: { icon: { placeholder: t } }
+			},
+			{
+				name: "message",
+				label: "Alert Message (supports {{ state }} and {{ entity }})",
+				required: !0,
+				selector: { text: {} }
+			},
+			{
+				name: "tap_action",
+				label: "Tap Action",
+				selector: { ui_action: { default_action: "more-info" } }
+			}
+		];
+		return this.ruleSchemaCache.set(i, o), o;
+	}
+	getServiceOptions() {
+		let e = this.hass?.services;
+		if (e && e === this.cachedServicesRef && this.cachedServiceOptions.length > 0) return this.cachedServiceOptions;
+		let t = [];
+		if (e) {
+			for (let [n, r] of Object.entries(e)) for (let [e, i] of Object.entries(r || {})) {
+				let r = `${n}.${e}`, a = i?.name;
+				t.push({
+					value: r,
+					label: a ? `${r} — ${a}` : r
+				});
+			}
+			t.sort((e, t) => e.value.localeCompare(t.value));
+		} else t.push({
+			value: "scene.turn_on",
+			label: "scene.turn_on — Activate Scene"
+		}, {
+			value: "script.turn_on",
+			label: "script.turn_on — Run Script"
+		}, {
+			value: "script.tts_announce",
+			label: "script.tts_announce — TTS Announce Script"
+		}, {
+			value: "light.turn_on",
+			label: "light.turn_on — Turn On Light"
+		}, {
+			value: "light.turn_off",
+			label: "light.turn_off — Turn Off Light"
+		}, {
+			value: "input_boolean.toggle",
+			label: "input_boolean.toggle — Toggle Input Boolean"
+		}, {
+			value: "notify.notify",
+			label: "notify.notify — Send Notification"
 		});
-		this.emitConfigChanged(n);
+		return this.cachedServicesRef = e, this.cachedServiceOptions = t, this.serviceSchemaCache.clear(), t;
+	}
+	getServiceCallSchema(e) {
+		let t = this.getServiceOptions(), n = (e || "").trim(), r = `${t.length}::${n}`, i = this.serviceSchemaCache.get(r);
+		if (i) return i;
+		let a = [
+			{
+				name: "service",
+				label: "Service Call (search domain.service)",
+				selector: { select: {
+					mode: "dropdown",
+					custom_value: !0,
+					options: n && !t.some((e) => e.value === n) ? [{
+						value: n,
+						label: n
+					}, ...t] : t
+				} }
+			},
+			{
+				name: "target",
+				label: "Target (Search Entities, Devices, or Areas)",
+				selector: { target: {} }
+			},
+			{
+				name: "message",
+				label: "Message Parameter (optional, supports {{ message }} & {{ entity }})",
+				selector: { text: {} }
+			}
+		];
+		return this.serviceSchemaCache.set(r, a), a;
+	}
+	onDefaultAlertFormChanged(e) {
+		if (e.stopPropagation(), !this.config) return;
+		let t = e.detail?.value;
+		if (!t) return;
+		let n = t.show_default_alert !== !1, r = {
+			...this.config.default_alert || {},
+			template: t.template || "SECURE",
+			message: t.message ?? "All Secured",
+			icon: t.icon || "mdi:shield-check"
+		};
+		t.entity && t.entity.trim() !== "" ? r.entity = t.entity.trim() : delete r.entity, this.emitConfigChanged({
+			...this.config,
+			type: this.config.type || "custom:guardian-alerts-card",
+			show_default_alert: n,
+			default_alert: r
+		});
+	}
+	onRuleFormChanged(e, t) {
+		if (t.stopPropagation(), !this.config) return;
+		let n = t.detail?.value;
+		if (!n) return;
+		let r = this.config.alerts.map((t, r) => {
+			if (r !== e) return t;
+			let i = {
+				...t,
+				entity: n.entity ?? t.entity ?? "",
+				state: n.state ?? t.state ?? "",
+				template: (n.template || t.template || "INFO").toUpperCase(),
+				message: n.message ?? t.message ?? ""
+			};
+			return n.icon && n.icon.trim() !== "" ? i.icon = n.icon.trim() : delete i.icon, n.tap_action && !Array.isArray(t.tap_action) && (i.tap_action = n.tap_action), i;
+		});
+		this.emitConfigChanged({
+			...this.config,
+			type: this.config.type || "custom:guardian-alerts-card",
+			alerts: r
+		});
 	}
 	addRule() {
-		let e = this.config?.alerts || [], t = Object.keys(this.hass?.states || {})[0] || "binary_sensor.example";
-		this.emitConfigChanged([...e, {
-			entity: t,
-			state: "on",
-			template: "WARNING",
-			message: "New Guardian Alert"
-		}]);
+		if (!this.config) return;
+		let e = this.config.alerts || [];
+		this.emitConfigChanged({
+			...this.config,
+			type: this.config.type || "custom:guardian-alerts-card",
+			alerts: [...e, {
+				entity: "",
+				state: "",
+				template: "WARNING",
+				message: "New Guardian Alert"
+			}]
+		});
 	}
 	removeRule(e) {
 		if (!this.config) return;
 		let t = this.config.alerts.filter((t, n) => n !== e);
-		this.emitConfigChanged(t);
+		this.emitConfigChanged({
+			...this.config,
+			type: this.config.type || "custom:guardian-alerts-card",
+			alerts: t
+		});
 	}
 	normalizeOnActiveList(e) {
-		return e.on_active ? Array.isArray(e.on_active) ? e.on_active.map((e) => ({
-			service: e.service || "",
+		if (!e.on_active) return [];
+		if (Array.isArray(e.on_active)) return e.on_active.map((e) => ({
+			service: e.service || e.perform_action || "",
 			target: e.target,
 			service_data: e.service_data ?? e.data
-		})) : e.on_active.service ? [{
-			service: e.on_active.service,
-			target: e.on_active.target,
-			service_data: e.on_active.service_data ?? e.on_active.data
-		}] : [] : [];
+		}));
+		let t = e.on_active;
+		return t.service || t.perform_action ? [{
+			service: t.service || t.perform_action || "",
+			target: t.target,
+			service_data: t.service_data ?? t.data
+		}] : [];
 	}
 	addOnActiveService(e) {
 		if (!this.config) return;
-		let t = this.config.alerts[e], n = this.normalizeOnActiveList(t);
-		this.updateRule(e, { on_active: [...n, {
-			service: "scene.turn_on",
-			target: { entity_id: "" }
-		}] });
-	}
-	updateOnActiveService(e, t, n, r) {
-		if (!this.config) return;
-		let i = this.config.alerts[e], a = this.normalizeOnActiveList(i).map((e, i) => {
-			if (i !== t) return e;
-			let a = { ...e };
-			if (n === "service") a.service = r;
-			else if (n === "entity_id") r.trim() ? a.target = {
-				...a.target || {},
-				entity_id: r.trim()
-			} : delete a.target;
-			else if (n === "message") {
-				let e = { ...a.service_data || {} };
-				r.trim() ? (e.message = r, a.service_data = e) : (delete e.message, a.service_data = Object.keys(e).length > 0 ? e : void 0);
-			}
-			return a;
+		let t = this.config.alerts[e], n = this.normalizeOnActiveList(t), r = this.config.alerts.map((t, r) => r === e ? {
+			...t,
+			on_active: [...n, { service: "scene.turn_on" }]
+		} : t);
+		this.emitConfigChanged({
+			...this.config,
+			alerts: r
 		});
-		this.updateRule(e, { on_active: a.length > 0 ? a : void 0 });
+	}
+	onServiceCallFormChanged(e, t, n) {
+		if (n.stopPropagation(), !this.config) return;
+		let r = n.detail?.value;
+		if (!r) return;
+		let i = this.config.alerts[e], a = this.normalizeOnActiveList(i).map((e, n) => {
+			if (n !== t) return e;
+			let i = {
+				...e,
+				service: r.service ?? e.service ?? ""
+			}, a = r.target;
+			a && typeof a == "object" && Object.keys(a).some((e) => {
+				let t = a[e];
+				return Array.isArray(t) ? t.length > 0 : !!t;
+			}) ? i.target = a : delete i.target;
+			let o = { ...i.service_data || {} };
+			return typeof r.message == "string" && r.message.trim() !== "" ? (o.message = r.message, i.service_data = o) : (delete o.message, i.service_data = Object.keys(o).length > 0 ? o : void 0), i;
+		}), o = this.config.alerts.map((t, n) => n === e ? {
+			...t,
+			on_active: a.length > 0 ? a : void 0
+		} : t);
+		this.emitConfigChanged({
+			...this.config,
+			alerts: o
+		});
 	}
 	removeOnActiveService(e, t) {
 		if (!this.config) return;
-		let n = this.config.alerts[e], r = this.normalizeOnActiveList(n).filter((e, n) => n !== t);
-		this.updateRule(e, { on_active: r.length > 0 ? r : void 0 });
+		let n = this.config.alerts[e], r = this.normalizeOnActiveList(n).filter((e, n) => n !== t), i = this.config.alerts.map((t, n) => n === e ? {
+			...t,
+			on_active: r.length > 0 ? r : void 0
+		} : t);
+		this.emitConfigChanged({
+			...this.config,
+			alerts: i
+		});
 	}
 	render() {
-		return this.config ? N`
+		if (!this.config) return F;
+		let e = this.config.show_default_alert !== !1, t = {
+			show_default_alert: e,
+			message: this.config.default_alert?.message ?? "All Secured",
+			template: (this.config.default_alert?.template || "SECURE").toUpperCase(),
+			icon: this.config.default_alert?.icon || "mdi:shield-check",
+			entity: this.config.default_alert?.entity || ""
+		};
+		return N`
       <div class="editor-container">
-        <datalist id="ha-entities-list">
-          ${Object.keys(this.hass?.states || {}).sort().map((e) => N`<option value="${e}"></option>`)}
-        </datalist>
+        <!-- Default "All Secured" Banner Section -->
+        <div class="rule-card secure-card">
+          <div class="rule-header">
+            <span class="rule-title">🛡️ Default Rule (When All Secured)</span>
+          </div>
+          <ha-form
+            .hass=${this.hass}
+            .data=${t}
+            .schema=${this.getDefaultAlertSchema(e)}
+            .computeLabel=${this.computeLabel}
+            .computeHelper=${this.computeHelper}
+            @value-changed=${(e) => this.onDefaultAlertFormChanged(e)}
+          ></ha-form>
+        </div>
 
+        <!-- Alert Rules Section -->
         ${this.config.alerts.map((e, t) => {
-			let n = Y(e.template || e.severity), r = this.normalizeOnActiveList(e);
+			let n = Y(e.template || e.severity), r = this.normalizeOnActiveList(e), i = e.entity ? this.hass?.states?.[e.entity] : void 0, a = i?.attributes?.unit_of_measurement, o = i?.state === void 0 ? void 0 : `${i.state}${a ? ` ${a}` : ""}`, s = {
+				entity: e.entity || "",
+				state: e.state !== void 0 && e.state !== null ? String(e.state) : "",
+				template: (e.template || e.severity || "INFO").toUpperCase(),
+				icon: e.icon || "",
+				message: e.message || "",
+				tap_action: Array.isArray(e.tap_action) ? { action: "more-info" } : e.tap_action || { action: "more-info" }
+			};
 			return N`
             <div class="rule-card">
               <div class="rule-header">
-                <span class="rule-title">Alert #${t + 1} (${n.name})</span>
+                <span class="rule-title">Alert Rule #${t + 1} (${n.name})</span>
                 <button
                   type="button"
                   class="btn-danger"
                   @click=${() => this.removeRule(t)}
                 >
-                  Remove
+                  Remove Rule
                 </button>
               </div>
 
-              <div class="grid">
-                <label class="field">
-                  <span>Entity</span>
-                  <input
-                    type="text"
-                    list="ha-entities-list"
-                    .value=${e.entity || ""}
-                    placeholder="binary_sensor.garage_door"
-                    @input=${(e) => this.updateRule(t, { entity: e.target.value })}
-                  />
-                </label>
-
-                <label class="field">
-                  <span>Trigger State</span>
-                  <input
-                    type="text"
-                    .value=${e.state || ""}
-                    placeholder="on / triggered"
-                    @input=${(e) => this.updateRule(t, { state: e.target.value })}
-                  />
-                </label>
-
-                <label class="field">
-                  <span>Template</span>
-                  <select
-                    .value=${(e.template || e.severity || "INFO").toUpperCase()}
-                    @change=${(e) => this.updateRule(t, { template: e.target.value })}
-                  >
-                    <option value="INFO">INFO (Static)</option>
-                    <option value="WARNING">WARNING (Slow Flash)</option>
-                    <option value="CRITICAL">CRITICAL (Slow Flash)</option>
-                  </select>
-                </label>
-
-                <label class="field">
-                  <span>Icon (blank = default ${n.defaultIcon})</span>
-                  <input
-                    type="text"
-                    .value=${e.icon || ""}
-                    placeholder="Default: ${n.defaultIcon}"
-                    @input=${(e) => this.updateRule(t, { icon: e.target.value })}
-                  />
-                </label>
-              </div>
-
-              <label class="field full">
-                <span>Alert Message</span>
-                <input
-                  type="text"
-                  .value=${e.message || ""}
-                  placeholder="Garage door opened"
-                  @input=${(e) => this.updateRule(t, { message: e.target.value })}
-                />
-              </label>
+              <ha-form
+                .hass=${this.hass}
+                .data=${s}
+                .schema=${this.getRuleSchema(e.entity, n.defaultIcon, o)}
+                .computeLabel=${this.computeLabel}
+                .computeHelper=${this.computeHelper}
+                @value-changed=${(e) => this.onRuleFormChanged(t, e)}
+              ></ha-form>
 
               <div class="services-section">
                 <div class="services-header">
@@ -1068,36 +1299,32 @@ var Q = class extends W {
                 </div>
 
                 ${r.map((e, n) => {
-				let r = typeof e.target?.entity_id == "string" ? e.target.entity_id : Array.isArray(e.target?.entity_id) ? e.target?.entity_id.join(", ") : "", i = e.service_data?.message ?? "";
+				let r = {
+					service: e.service || "",
+					target: e.target || {},
+					message: e.service_data?.message ?? ""
+				};
 				return N`
-                    <div class="service-row">
-                      <input
-                        type="text"
-                        .value=${e.service || ""}
-                        placeholder="Service (e.g. scene.turn_on or script.tts_announce)"
-                        @input=${(e) => this.updateOnActiveService(t, n, "service", e.target.value)}
-                      />
-                      <input
-                        type="text"
-                        list="ha-entities-list"
-                        .value=${r}
-                        placeholder="Target entity_id (optional, e.g. scene.alert)"
-                        @input=${(e) => this.updateOnActiveService(t, n, "entity_id", e.target.value)}
-                      />
-                      <input
-                        type="text"
-                        .value=${i}
-                        placeholder="Message param (optional, e.g. {{ message }})"
-                        @input=${(e) => this.updateOnActiveService(t, n, "message", e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        class="btn-danger-sm"
-                        title="Remove Service"
-                        @click=${() => this.removeOnActiveService(t, n)}
-                      >
-                        ✕
-                      </button>
+                    <div class="service-card">
+                      <div class="service-card-header">
+                        <span>Service Call #${n + 1}</span>
+                        <button
+                          type="button"
+                          class="btn-danger-sm"
+                          title="Remove Service Call"
+                          @click=${() => this.removeOnActiveService(t, n)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <ha-form
+                        .hass=${this.hass}
+                        .data=${r}
+                        .schema=${this.getServiceCallSchema(e.service)}
+                        .computeLabel=${this.computeLabel}
+                        .computeHelper=${this.computeHelper}
+                        @value-changed=${(e) => this.onServiceCallFormChanged(t, n, e)}
+                      ></ha-form>
                     </div>
                   `;
 			})}
@@ -1110,14 +1337,14 @@ var Q = class extends W {
           + Add Alert Rule
         </button>
       </div>
-    ` : F;
+    `;
 	}
 	static {
 		this.styles = o`
     .editor-container {
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
       padding: 8px 0;
       color: var(--primary-text-color, #f3f4f6);
     }
@@ -1125,11 +1352,15 @@ var Q = class extends W {
     .rule-card {
       background: var(--secondary-background-color, rgba(255, 255, 255, 0.04));
       border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.12));
-      border-radius: 10px;
-      padding: 14px;
+      border-radius: 12px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 14px;
+    }
+
+    .secure-card {
+      border-color: color-mix(in srgb, var(--success-color, #22c55e) 40%, var(--divider-color, rgba(255, 255, 255, 0.12)));
     }
 
     .rule-header {
@@ -1137,65 +1368,43 @@ var Q = class extends W {
       justify-content: space-between;
       align-items: center;
       font-weight: 700;
-      font-size: 0.9rem;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 10px;
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 0.78rem;
-      color: var(--secondary-text-color, #9ca3af);
-    }
-
-    .field.full {
-      width: 100%;
-    }
-
-    input,
-    select {
-      background: var(--card-background-color, #1e293b);
-      color: var(--primary-text-color, #f3f4f6);
-      border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.18));
-      border-radius: 6px;
-      padding: 7px 10px;
-      font-size: 0.85rem;
-      outline: none;
-    }
-
-    input:focus,
-    select:focus {
-      border-color: var(--primary-color, #38bdf8);
+      font-size: 0.95rem;
     }
 
     .services-section {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      padding-top: 6px;
-      border-top: 1px dashed var(--divider-color, rgba(255, 255, 255, 0.12));
+      gap: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--divider-color, rgba(255, 255, 255, 0.16));
     }
 
     .services-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       font-weight: 600;
       color: var(--secondary-text-color, #9ca3af);
     }
 
-    .service-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr auto;
-      gap: 6px;
+    .service-card {
+      background: var(--card-background-color, rgba(15, 23, 42, 0.45));
+      border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.1));
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .service-card-header {
+      display: flex;
+      justify-content: space-between;
       align-items: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--secondary-text-color, #9ca3af);
     }
 
     button {
@@ -1210,7 +1419,7 @@ var Q = class extends W {
     .btn-primary {
       background: var(--primary-color, #0284c7);
       color: #fff;
-      padding: 10px 14px;
+      padding: 10px 16px;
       align-self: flex-start;
     }
 
@@ -1229,7 +1438,7 @@ var Q = class extends W {
     .btn-danger-sm {
       background: rgba(239, 68, 68, 0.15);
       color: #f87171;
-      padding: 6px 9px;
+      padding: 4px 10px;
     }
   `;
 	}
@@ -1247,27 +1456,61 @@ var $ = class extends W {
 	static getConfigElement() {
 		return document.createElement("guardian-alerts-card-editor");
 	}
-	static getStubConfig(e) {
+	static getStubConfig() {
 		return {
 			type: "custom:guardian-alerts-card",
+			show_default_alert: !0,
+			default_alert: {
+				template: "SECURE",
+				message: "All Secured",
+				icon: "mdi:shield-check"
+			},
 			alerts: [{
-				entity: Object.keys(e?.states || {}).find((e) => e.startsWith("binary_sensor.")) || Object.keys(e?.states || {})[0] || "binary_sensor.garage_entry_door",
-				state: "on",
+				entity: "",
+				state: "",
 				template: "WARNING",
 				message: "Guardian Alert Triggered"
 			}]
 		};
 	}
 	setConfig(e) {
-		if (!e?.alerts) throw Error("Define an \"alerts\" array in your configuration");
-		this.config = e, this.activeRuleKeys.clear(), this.hasInitializedStates = !1;
+		if (!e) throw Error("Invalid configuration");
+		this.config = {
+			...e,
+			alerts: Array.isArray(e.alerts) ? e.alerts : []
+		}, this.activeRuleKeys.clear(), this.hasInitializedStates = !1;
 	}
 	getRuleKey(e, t) {
-		return `${t}:${e.entity}:${e.state.toLowerCase()}`;
+		return `${t}:${e.entity || ""}:${String(e.state ?? "").toLowerCase()}`;
 	}
 	isRuleActive(e) {
-		let t = this.hass?.states?.[e.entity];
-		return !!(t && t.state.toLowerCase() === e.state.toLowerCase());
+		if (!e.entity || e.state === void 0 || e.state === null) return !1;
+		let t = String(e.state).trim();
+		if (t === "") return !1;
+		let n = this.hass?.states?.[e.entity];
+		if (!n || n.state === void 0 || n.state === null) return !1;
+		let r = String(n.state).trim(), i = t.match(/^(>=|<=|!=|==|>|<)\s*(.+)$/);
+		if (i) {
+			let [, e, t] = i, n = Number(r), a = Number(t);
+			if (r !== "" && t.trim() !== "" && !Number.isNaN(n) && !Number.isNaN(a)) {
+				if (e === ">") return n > a;
+				if (e === ">=") return n >= a;
+				if (e === "<") return n < a;
+				if (e === "<=") return n <= a;
+				if (e === "==") return n === a;
+				if (e === "!=") return n !== a;
+			}
+			if (e === "!=") return r.toLowerCase() !== t.trim().toLowerCase();
+			if (e === "==") return r.toLowerCase() === t.trim().toLowerCase();
+		}
+		let a = Number(r), o = Number(t);
+		return r !== "" && !Number.isNaN(a) && !Number.isNaN(o) ? a === o : r.toLowerCase() === t.toLowerCase();
+	}
+	formatMessage(e) {
+		let t = e.message || "";
+		if (!e.entity) return t;
+		let n = this.hass?.states?.[e.entity]?.state ?? "";
+		return t.replace(/\{\{\s*state\s*\}\}/g, String(n)).replace(/\{\{\s*entity\s*\}\}/g, e.entity);
 	}
 	updated(e) {
 		if (super.updated(e), this.hass && this.config && (e.has("hass") || e.has("config"))) {
@@ -1278,7 +1521,7 @@ var $ = class extends W {
 					hass: this.hass,
 					config: t.on_active,
 					defaultEntity: t.entity,
-					defaultMessage: t.message
+					defaultMessage: this.formatMessage(t)
 				}));
 			}), this.activeRuleKeys = e, this.hasInitializedStates = !0;
 		}
@@ -1289,7 +1532,7 @@ var $ = class extends W {
 				hass: this.hass,
 				config: e.hold_action || { action: "more-info" },
 				defaultEntity: e.entity,
-				defaultMessage: e.message
+				defaultMessage: this.formatMessage(e)
 			});
 		}, 500);
 	}
@@ -1298,7 +1541,7 @@ var $ = class extends W {
 			hass: this.hass,
 			config: e.tap_action || { action: "more-info" },
 			defaultEntity: e.entity,
-			defaultMessage: e.message
+			defaultMessage: this.formatMessage(e)
 		});
 	}
 	onPointerCancel() {
@@ -1306,8 +1549,22 @@ var $ = class extends W {
 	}
 	render() {
 		if (!this.hass || !this.config) return F;
-		let e = this.config.alerts.filter((e) => this.isRuleActive(e));
-		return e.length === 0 ? F : N`
+		let e = (this.config.alerts || []).filter((e) => this.isRuleActive(e));
+		if (e.length === 0) {
+			if (this.config.show_default_alert === !1) return F;
+			let t = this.config.default_alert;
+			e = [{
+				entity: t?.entity || this.config.alerts?.[0]?.entity || "",
+				state: "",
+				template: t?.template || "SECURE",
+				message: t?.message || "All Secured",
+				icon: t?.icon || "mdi:shield-check",
+				icon_color: t?.icon_color,
+				tap_action: t?.tap_action || (t?.entity ? { action: "more-info" } : { action: "none" }),
+				hold_action: t?.hold_action || (t?.entity ? { action: "more-info" } : { action: "none" })
+			}];
+		}
+		return N`
       <div class="card-container">
         ${e.map((e) => {
 			let t = Y(e.template || e.severity), n = e.icon?.trim() || t.defaultIcon;
@@ -1325,7 +1582,7 @@ var $ = class extends W {
                 </div>
                 <div class="content">
                   <span class="badge">${t.name}</span>
-                  <span class="message">${e.message}</span>
+                  <span class="message">${this.formatMessage(e)}</span>
                 </div>
                 <span class="bottom-ribbon" aria-hidden="true"></span>
               </div>
@@ -1337,7 +1594,8 @@ var $ = class extends W {
 	}
 	static {
 		this.styles = [
-			Ee,
+			De,
+			Y("SECURE").styles,
 			Y("INFO").styles,
 			Y("WARNING").styles,
 			Y("CRITICAL").styles,
