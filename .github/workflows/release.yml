@@ -42,6 +42,8 @@ jobs:
 
       - name: Determine release tag
         id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.tag }}" ]]; then
             TAG="${{ inputs.tag }}"
@@ -52,10 +54,11 @@ jobs:
           else
             PKG_VER=$(node -p "require('./package.json').version")
             TAG="v${PKG_VER}"
-            if git rev-parse "${TAG}" >/dev/null 2>&1; then
-              echo "Tag ${TAG} already exists; skipping new release creation."
-              SHOULD_RELEASE="false"
+            if gh release view "${TAG}" >/dev/null 2>&1; then
+              echo "GitHub Release ${TAG} already exists; updating assets."
+              SHOULD_RELEASE="true"
             else
+              echo "Creating new GitHub Release ${TAG}."
               SHOULD_RELEASE="true"
             fi
           fi
@@ -76,7 +79,7 @@ jobs:
             -f "names[]=lovelace" \
             -f "names[]=hacs"
 
-      - name: Create GitHub Release & Upload HACS Asset
+      - name: Create or Update GitHub Release & Upload HACS Asset
         if: steps.version.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v2
         with:

@@ -1,9 +1,6 @@
 # Dependencies
 node_modules/
 
-# Build output (uploaded via GitHub Actions Release workflow)
-dist/
-
 # Local throwaway Home Assistant test container config
 .ha-test-config/
 
