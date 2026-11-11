@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build output (uploaded via GitHub Actions Release workflow)
+dist/
+
+# Local throwaway Home Assistant test container config
+.ha-test-config/
+
+# Logs & OS files
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Editor & environment files
+.vscode/
+.idea/
+.env
+.env.*

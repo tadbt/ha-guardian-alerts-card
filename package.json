@@ -1,0 +1,37 @@
+{
+  "name": "ha-guardian-alerts-card",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Modern origami-styled Home Assistant Lovelace alert banner card with slow flashing, theme-aware icons, visual editor, and multi-service actions.",
+  "main": "dist/guardian-alerts-card.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:ha": "bash scripts/test-ha.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tadbt/ha-guardian-alerts-card.git"
+  },
+  "keywords": [
+    "home-assistant",
+    "lovelace",
+    "hacs",
+    "custom-card",
+    "guardian-alerts",
+    "security",
+    "built-with-gemini"
+  ],
+  "author": "tadbt",
+  "license": "MIT",
+  "dependencies": {
+    "custom-card-helpers": "^2.0.0",
+    "lit": "^3.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}

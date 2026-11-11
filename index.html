@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Guardian Alert Card Preview</title>
+
+    <!-- Material Symbols / Icons used by Home Assistant -->
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+
+    <style>
+        :root {
+            --ha-card-border-radius: 12px;
+            --primary-text-color: #f3f4f6;
+            --secondary-text-color: #9ca3af;
+            --ha-card-background: #1e293b;
+            --card-background-color: #1e293b;
+            --state-icon-color: #e2e8f0;
+            --info-color: #38bdf8;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: var(--primary-text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            transition: background-color 0.25s ease, color 0.25s ease;
+        }
+
+        .dashboard-preview,
+        .editor-preview {
+            width: 100%;
+            max-width: 540px;
+        }
+
+        .editor-preview {
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .editor-preview summary {
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.95rem;
+            user-select: none;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        button {
+            background: #334155;
+            border: 1px solid #475569;
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        button:hover {
+            background: #475569;
+        }
+
+        .service-log {
+            width: 100%;
+            max-width: 540px;
+            background: rgba(15, 23, 42, 0.75);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Guardian Alerts Card — Origami &amp; Visual Editor Harness</h2>
+
+    <!-- Interactive buttons to simulate state changes & themes in real time -->
+    <div class="controls">
+        <button id="toggle-door">Toggle Garage Door (WARNING)</button>
+        <button id="toggle-alarm">Toggle Main Alarm (CRITICAL)</button>
+        <button id="toggle-info">Toggle Disarmed Banner (INFO)</button>
+        <button id="cycle-theme">Switch Theme (DefaultDark)</button>
+    </div>
+
+    <div class="dashboard-preview">
+        <guardian-alerts-card id="test-card"></guardian-alerts-card>
+    </div>
+
+    <details class="editor-preview" open>
+        <summary>Visual Card Editor (Live Preview)</summary>
+        <guardian-alerts-card-editor id="test-editor"></guardian-alerts-card-editor>
+    </details>
+
+    <div class="service-log" id="service-log">
+        <div><strong>Service &amp; Event Log</strong> (toggle an alert ON to see <code>on_active</code> fire multiple services):</div>
+    </div>
+
+    <script type="module">
+        import './src/guardian-alerts-card.ts';
+
+        const logBox = document.getElementById('service-log');
+        function appendLog(msg) {
+            const line = document.createElement('div');
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logBox.appendChild(line);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        // Map common MDI icon names to Material Symbols for the local standalone browser preview
+        const mdiToMaterialMap = {
+            'information_outline': 'info',
+            'information': 'info',
+            'alert_outline': 'warning',
+            'alert': 'warning',
+            'alert_octagon': 'gpp_maybe',
+            'shield_alert': 'gpp_maybe',
+            'shield_off': 'remove_moderator',
+            'garage_open': 'garage_home',
+            'garage': 'garage_home',
+        };
+
+        // 1. Polyfill minimal <ha-icon> so icons render in plain browser (supports both .icon prop and icon attr)
+        if (!customElements.get('ha-icon')) {
+            customElements.define('ha-icon', class extends HTMLElement {
+                static get observedAttributes() { return ['icon']; }
+                get icon() { return this.getAttribute('icon') || ''; }
+                set icon(val) { this.setAttribute('icon', val || ''); }
+                attributeChangedCallback() {
+                    const raw = this.getAttribute('icon') || '';
+                    const stripped = raw.replace(/^mdi:/, '').replace(/-/g, '_');
+                    const name = mdiToMaterialMap[stripped] || stripped || 'notifications';
+                    this.innerHTML = `<span class="material-symbols-outlined" style="font-size: var(--mdc-icon-size, 24px);">${name}</span>`;
+                }
+            });
+        }
+
+        // 2. Mock Home Assistant state machine
+        const mockHass = {
+            states: {
+                'binary_sensor.garage_entry_door': { state: 'on', entity_id: 'binary_sensor.garage_entry_door' },
+                'alarm_control_panel.main_alarm': { state: 'triggered', entity_id: 'alarm_control_panel.main_alarm' },
+                'binary_sensor.front_porch_motion': { state: 'on', entity_id: 'binary_sensor.front_porch_motion' },
+            },
+            callService: (domain, service, serviceData, target) => {
+                console.log(`[HASS SERVICE CALL] -> ${domain}.${service}`, { serviceData, target });
+                appendLog(`callService: ${domain}.${service} | data=${JSON.stringify(serviceData || {})} target=${JSON.stringify(target || {})}`);
+            }
+        };
+
+        // 3. Card Configuration (icons omitted on INFO and CRITICAL to showcase default icons!)
+        let currentConfig = {
+            type: 'custom:guardian-alerts-card',
+            alerts: [
+                {
+                    entity: 'binary_sensor.front_porch_motion',
+                    state: 'on',
+                    template: 'INFO',
+                    message: 'Front porch delivery box unlocked (Default INFO icon)',
+                },
+                {
+                    entity: 'binary_sensor.garage_entry_door',
+                    state: 'on',
+                    template: 'WARNING',
+                    message: 'Garage door opened (Default WARNING icon)',
+                    on_active: [
+                        {
+                            service: 'scene.turn_on',
+                            target: { entity_id: 'scene.warning_lights' }
+                        },
+                        {
+                            service: 'script.tts_announce',
+                            service_data: {
+                                message: '{{ message }}',
+                                media_player: 'media_player.kitchen_speaker'
+                            }
+                        }
+                    ],
+                    tap_action: [
+                        {
+                            service: 'light.toggle',
+                            service_data: { entity_id: 'light.garage' }
+                        },
+                        {
+                            service: 'script.tts_announce',
+                            service_data: { message: 'Toggling garage light for: {{ message }}' }
+                        }
+                    ]
+                },
+                {
+                    entity: 'alarm_control_panel.main_alarm',
+                    state: 'triggered',
+                    template: 'CRITICAL',
+                    message: 'Perimeter Intrusion Detected! (Default CRITICAL icon)',
+                    on_active: [
+                        {
+                            service: 'scene.turn_on',
+                            target: { entity_id: 'scene.emergency_red_lights' }
+                        },
+                        {
+                            service: 'script.tts_announce',
+                            service_data: {
+                                message: 'Critical alert: {{ message }}',
+                                media_player: 'media_player.whole_house'
+                            }
+                        }
+                    ],
+                    tap_action: {
+                        action: 'call-service',
+                        service: 'alarm_control_panel.alarm_disarm'
+                    }
+                }
+            ]
+        };
+
+        const card = document.getElementById('test-card');
+        const editor = document.getElementById('test-editor');
+
+        card.setConfig(currentConfig);
+        card.hass = { ...mockHass };
+
+        editor.hass = mockHass;
+        editor.setConfig(currentConfig);
+        editor.addEventListener('config-changed', (e) => {
+            currentConfig = e.detail.config;
+            card.setConfig(currentConfig);
+            appendLog('Updated card config via Visual Editor');
+        });
+
+        // 4. Connect UI test toggles
+        document.getElementById('toggle-door').addEventListener('click', () => {
+            const current = mockHass.states['binary_sensor.garage_entry_door'].state;
+            const next = current === 'on' ? 'off' : 'on';
+            mockHass.states['binary_sensor.garage_entry_door'] = {
+                ...mockHass.states['binary_sensor.garage_entry_door'],
+                state: next,
+            };
+            appendLog(`State binary_sensor.garage_entry_door -> ${next}`);
+            card.hass = { ...mockHass, states: { ...mockHass.states } };
+        });
+
+        document.getElementById('toggle-alarm').addEventListener('click', () => {
+            const current = mockHass.states['alarm_control_panel.main_alarm'].state;
+            const next = current === 'triggered' ? 'disarmed' : 'triggered';
+            mockHass.states['alarm_control_panel.main_alarm'] = {
+                ...mockHass.states['alarm_control_panel.main_alarm'],
+                state: next,
+            };
+            appendLog(`State alarm_control_panel.main_alarm -> ${next}`);
+            card.hass = { ...mockHass, states: { ...mockHass.states } };
+        });
+
+        document.getElementById('toggle-info').addEventListener('click', () => {
+            const current = mockHass.states['binary_sensor.front_porch_motion'].state;
+            const next = current === 'on' ? 'off' : 'on';
+            mockHass.states['binary_sensor.front_porch_motion'] = {
+                ...mockHass.states['binary_sensor.front_porch_motion'],
+                state: next,
+            };
+            appendLog(`State binary_sensor.front_porch_motion -> ${next}`);
+            card.hass = { ...mockHass, states: { ...mockHass.states } };
+        });
+
+        // 5. Theme switcher to verify theme variables impact origami & icon colors
+        const themes = [
+            {
+                name: 'DefaultDark',
+                bg: '#0f172a',
+                vars: {
+                    '--ha-card-background': '#1e293b',
+                    '--primary-text-color': '#f3f4f6',
+                    '--state-icon-color': '#e2e8f0',
+                    '--info-color': '#38bdf8',
+                    '--warning-color': '#f59e0b',
+                    '--error-color': '#ef4444',
+                }
+            },
+            {
+                name: 'CyberpunkNeon',
+                bg: '#090514',
+                vars: {
+                    '--ha-card-background': '#160d2e',
+                    '--primary-text-color': '#f0abfc',
+                    '--state-icon-color': '#22d3ee',
+                    '--info-color': '#06b6d4',
+                    '--warning-color': '#facc15',
+                    '--error-color': '#f43f5e',
+                }
+            },
+            {
+                name: 'NordicLight',
+                bg: '#f1f5f9',
+                vars: {
+                    '--ha-card-background': '#ffffff',
+                    '--primary-text-color': '#0f172a',
+                    '--state-icon-color': '#334155',
+                    '--info-color': '#0284c7',
+                    '--warning-color': '#d97706',
+                    '--error-color': '#dc2626',
+                }
+            }
+        ];
+        let themeIdx = 0;
+        const themeBtn = document.getElementById('cycle-theme');
+        themeBtn.addEventListener('click', () => {
+            themeIdx = (themeIdx + 1) % themes.length;
+            const t = themes[themeIdx];
+            document.body.style.backgroundColor = t.bg;
+            for (const [k, v] of Object.entries(t.vars)) {
+                document.documentElement.style.setProperty(k, v);
+            }
+            themeBtn.textContent = `Switch Theme (${t.name})`;
+            appendLog(`Switched theme to ${t.name}`);
+        });
+
+        window.addEventListener('hass-more-info', (e) => {
+            appendLog(`Event hass-more-info -> entityId=${e.detail.entityId}`);
+        });
+    </script>
+</body>
+
+</html>

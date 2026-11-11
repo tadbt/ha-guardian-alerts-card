@@ -1,0 +1,87 @@
+name: Build & Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v1.0.0). Leave empty to use package.json version.'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build bundle
+        run: npm run build
+
+      - name: Determine release tag
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.tag }}" ]]; then
+            TAG="${{ inputs.tag }}"
+            SHOULD_RELEASE="true"
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG="${{ github.ref_name }}"
+            SHOULD_RELEASE="true"
+          else
+            PKG_VER=$(node -p "require('./package.json').version")
+            TAG="v${PKG_VER}"
+            if git rev-parse "${TAG}" >/dev/null 2>&1; then
+              echo "Tag ${TAG} already exists; skipping new release creation."
+              SHOULD_RELEASE="false"
+            else
+              SHOULD_RELEASE="true"
+            fi
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "should_release=${SHOULD_RELEASE}" >> "$GITHUB_OUTPUT"
+
+      - name: Set GitHub Repository Topics (built-with-gemini)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api \
+            --method PUT \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/topics" \
+            -f "names[]=built-with-gemini" \
+            -f "names[]=home-assistant" \
+            -f "names[]=lovelace" \
+            -f "names[]=hacs"
+
+      - name: Create GitHub Release & Upload HACS Asset
+        if: steps.version.outputs.should_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            dist/guardian-alerts-card.js
