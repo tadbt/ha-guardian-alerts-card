@@ -2,9 +2,23 @@ import { ActionOrServiceInput } from './templates/types';
 
 export type AlertSeverity = 'SECURE' | 'INFO' | 'WARNING' | 'CRITICAL';
 
+export type StateOperator = 'equals' | 'not_equals' | 'contains';
+
+export interface DurationConfig {
+    days?: number;
+    hours?: number;
+    minutes?: number;
+    seconds?: number;
+    milliseconds?: number;
+}
+
 export interface AlertRule {
     entity: string;
-    state: string | number | boolean; // Any entity state or sensor value (e.g. "on", "home", 75, "> 80", "< 20")
+    state?: string | number | boolean | Array<string | number | boolean>; // Single or multiple trigger states
+    states?: Array<string | number | boolean>; // Optional alias for multiple trigger states
+    operator?: StateOperator; // 'equals' (default) | 'not_equals' | 'contains'
+    for?: DurationConfig | number | string; // How long entity must stay in state to trigger
+    duration?: DurationConfig | number | string; // Alias for `for`
     template?: AlertSeverity;
     severity?: AlertSeverity;
     message: string;

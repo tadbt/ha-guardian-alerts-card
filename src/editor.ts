@@ -1,7 +1,14 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { HomeAssistant } from 'custom-card-helpers';
-import { AlertRule, AlertSeverity, DefaultAlertConfig, GuardianAlertsCardConfig } from './types';
+import {
+  AlertRule,
+  AlertSeverity,
+  DefaultAlertConfig,
+  DurationConfig,
+  GuardianAlertsCardConfig,
+  StateOperator,
+} from './types';
 import { ActionConfig, getTemplate, ServiceCallConfig } from './templates';
 
 interface HaFormSchemaItem {
@@ -18,6 +25,58 @@ const TEMPLATE_OPTIONS = [
   { value: 'WARNING', label: 'WARNING (Amber — Slow Flash)' },
   { value: 'CRITICAL', label: 'CRITICAL (Red — Slow Flash)' },
 ];
+
+const OPERATOR_OPTIONS = [
+  { value: 'equals', label: 'Equal (=) — Matches any selected state' },
+  { value: 'not_equals', label: 'Not Equal (≠) — Does not match selected state(s)' },
+  { value: 'contains', label: 'Contains — State contains any selected value' },
+];
+
+const DOMAIN_STATE_SUGGESTIONS: Record<string, string[]> = {
+  binary_sensor: ['on', 'off', 'unavailable', 'unknown'],
+  switch: ['on', 'off', 'unavailable'],
+  light: ['on', 'off', 'unavailable'],
+  input_boolean: ['on', 'off'],
+  fan: ['on', 'off', 'unavailable'],
+  alarm_control_panel: [
+    'disarmed',
+    'armed_home',
+    'armed_away',
+    'armed_night',
+    'armed_vacation',
+    'armed_custom_bypass',
+    'pending',
+    'arming',
+    'triggered',
+    'unavailable',
+  ],
+  lock: ['locked', 'unlocked', 'locking', 'unlocking', 'jammed', 'open', 'opening', 'unavailable'],
+  cover: ['open', 'closed', 'opening', 'closing', 'stopped', 'unavailable'],
+  person: ['home', 'not_home', 'unavailable'],
+  device_tracker: ['home', 'not_home', 'unavailable'],
+  media_player: ['playing', 'paused', 'idle', 'standby', 'off', 'on', 'buffering', 'unavailable'],
+  climate: ['off', 'heat', 'cool', 'heat_cool', 'auto', 'dry', 'fan_only', 'unavailable'],
+  weather: [
+    'clear-night',
+    'cloudy',
+    'exceptional',
+    'fog',
+    'hail',
+    'lightning',
+    'lightning-rainy',
+    'partlycloudy',
+    'pouring',
+    'rainy',
+    'snowy',
+    'snowy-rainy',
+    'sunny',
+    'windy',
+    'windy-variant',
+  ],
+  sun: ['above_horizon', 'below_horizon'],
+  vacuum: ['cleaning', 'docked', 'idle', 'paused', 'returning', 'error', 'unavailable'],
+  water_heater: ['off', 'eco', 'electric', 'performance', 'high_demand', 'heat_pump', 'gas'],
+};
 
 @customElement('guardian-alerts-card-editor')
 export class GuardianAlertsCardEditor extends LitElement {
@@ -85,6 +144,142 @@ export class GuardianAlertsCardEditor extends LitElement {
     return schema.helper || '';
   };
 
+  private normalizeRuleStates(rule: AlertRule): string[] {
+    const raw: Array<string | number | boolean> = [];
+    if (Array.isArray(rule.states)) {
+      raw.push(...rule.states);
+    }
+    if (Array.isArray(rule.state)) {
+      raw.push(...rule.state);
+    } else if (rule.state !== undefined && rule.state !== null && String(rule.state).trim() !== '') {
+      raw.push(rule.state);
+    }
+    return Array.from(
+      new Set(
+        raw
+          .map((v) => String(v).trim())
+          .filter((v) => v !== '')
+      )
+    );
+  }
+
+  private normalizeDurationObject(raw?: DurationConfig | number | string): DurationConfig {
+    if (!raw) return { hours: 0, minutes: 0, seconds: 0 };
+    if (typeof raw === 'number') {
+      const totalSec = Math.max(0, Math.floor(raw));
+      const hours = Math.floor(totalSec / 3600);
+      const minutes = Math.floor((totalSec % 3600) / 60);
+      const seconds = totalSec % 60;
+      return { hours, minutes, seconds };
+    }
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      const hmsMatch = trimmed.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
+      if (hmsMatch) {
+        const hasThree = hmsMatch[3] !== undefined;
+        return {
+          hours: hasThree ? Number(hmsMatch[1]) : 0,
+          minutes: hasThree ? Number(hmsMatch[2]) : Number(hmsMatch[1]),
+          seconds: hasThree ? Number(hmsMatch[3]) : Number(hmsMatch[2]),
+        };
+      }
+      const numVal = Number(trimmed);
+      if (!Number.isNaN(numVal) && numVal > 0) {
+        return this.normalizeDurationObject(numVal);
+      }
+      return { hours: 0, minutes: 0, seconds: 0 };
+    }
+    return {
+      hours: Number(raw.hours || 0),
+      minutes: Number(raw.minutes || 0),
+      seconds: Number(raw.seconds || 0),
+    };
+  }
+
+  private isZeroDuration(dur?: DurationConfig): boolean {
+    if (!dur) return true;
+    return (
+      !Number(dur.days || 0) &&
+      !Number(dur.hours || 0) &&
+      !Number(dur.minutes || 0) &&
+      !Number(dur.seconds || 0) &&
+      !Number(dur.milliseconds || 0)
+    );
+  }
+
+  private getStateOptionsForEntity(
+    entityId: string | undefined,
+    selectedStates: string[]
+  ): Array<{ value: string; label: string }> {
+    const seen = new Set<string>();
+    const options: Array<{ value: string; label: string }> = [];
+
+    const addOption = (val: string, label?: string) => {
+      const clean = String(val).trim();
+      if (!clean || seen.has(clean)) return;
+      seen.add(clean);
+      options.push({ value: clean, label: label || clean });
+    };
+
+    // 1. Include any already-selected custom states first so their chips always render labels
+    for (const s of selectedStates) {
+      addOption(s);
+    }
+
+    // 2. Inspect entity's live state and attributes in hass
+    const cleanEntity = (entityId || '').trim();
+    const stateObj = cleanEntity ? this.hass?.states?.[cleanEntity] : undefined;
+    if (stateObj) {
+      if (stateObj.state !== undefined && stateObj.state !== null) {
+        const cur = String(stateObj.state).trim();
+        addOption(cur, `${cur} (Current State)`);
+      }
+
+      const attrs = stateObj.attributes || {};
+      const attrLists = [
+        attrs.options,
+        attrs.hvac_modes,
+        attrs.preset_modes,
+        attrs.operation_list,
+        attrs.fan_modes,
+        attrs.swing_modes,
+        attrs.effect_list,
+        attrs.source_list,
+      ];
+      for (const list of attrLists) {
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            addOption(String(item));
+          }
+        }
+      }
+    }
+
+    // 3. Domain-specific state suggestions
+    const domain = cleanEntity.includes('.') ? cleanEntity.split('.')[0] : '';
+    if (domain && DOMAIN_STATE_SUGGESTIONS[domain]) {
+      for (const s of DOMAIN_STATE_SUGGESTIONS[domain]) {
+        addOption(s);
+      }
+    }
+
+    // For person / device_tracker, also add configured zone friendly names
+    if ((domain === 'person' || domain === 'device_tracker') && this.hass?.states) {
+      for (const [id, st] of Object.entries(this.hass.states)) {
+        if (id.startsWith('zone.') && st?.attributes?.friendly_name) {
+          addOption(String(st.attributes.friendly_name));
+        }
+      }
+    }
+
+    // 4. General common states fallback
+    for (const common of ['on', 'off', 'triggered', 'disarmed', 'open', 'closed', 'home', 'not_home', 'unavailable']) {
+      addOption(common);
+    }
+
+    return options;
+  }
+
   private getDefaultAlertSchema(showDefault: boolean): HaFormSchemaItem[] {
     const cached = this.defaultSchemaCache.get(showDefault);
     if (cached) return cached;
@@ -138,16 +333,19 @@ export class GuardianAlertsCardEditor extends LitElement {
   private getRuleSchema(
     entityId: string | undefined,
     defaultIcon: string,
+    selectedStates: string[],
     liveStateDisplay?: string
   ): HaFormSchemaItem[] {
     const cleanEntity = (entityId || '').trim();
-    const cacheKey = `${cleanEntity}::${defaultIcon}::${liveStateDisplay || ''}`;
+    const stateOptions = this.getStateOptionsForEntity(cleanEntity, selectedStates);
+    const optionsKey = stateOptions.map((o) => o.value).join('|');
+    const cacheKey = `${cleanEntity}::${defaultIcon}::${liveStateDisplay || ''}::${optionsKey}`;
     const cached = this.ruleSchemaCache.get(cacheKey);
     if (cached) return cached;
 
     const stateLabel = liveStateDisplay
-      ? `Trigger State / Value (Current: ${liveStateDisplay})`
-      : 'Trigger State / Value (e.g. on, home, 75, > 80, < 20)';
+      ? `Trigger State(s) / Value(s) (Current: ${liveStateDisplay})`
+      : 'Trigger State(s) / Value(s)';
 
     const schema: HaFormSchemaItem[] = [
       {
@@ -157,17 +355,36 @@ export class GuardianAlertsCardEditor extends LitElement {
         selector: { entity: {} },
       },
       {
-        name: 'state',
+        name: 'operator',
+        label: 'State Match Condition',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: OPERATOR_OPTIONS,
+          },
+        },
+      },
+      {
+        name: 'states',
         label: stateLabel,
-        helper: 'Pick an entity state or enter any value / numeric comparison (e.g. > 80, < 20)',
+        helper: 'Select one or more states, or type any custom value/text and press Enter',
         required: true,
-        selector: cleanEntity
-          ? {
-              state: {
-                entity_id: cleanEntity,
-              },
-            }
-          : { text: {} },
+        selector: {
+          select: {
+            multiple: true,
+            custom_value: true,
+            mode: 'dropdown',
+            options: stateOptions,
+          },
+        },
+      },
+      {
+        name: 'for',
+        label: 'Duration in State Before Triggering (hh:mm:ss)',
+        helper: 'How long the entity must stay in the matching state to trigger (00:00:00 = immediate)',
+        selector: {
+          duration: {},
+        },
       },
       {
         name: 'template',
@@ -229,7 +446,6 @@ export class GuardianAlertsCardEditor extends LitElement {
       }
       options.sort((a, b) => a.value.localeCompare(b.value));
     } else {
-      // Fallback common services if hass.services is not populated yet
       options.push(
         { value: 'scene.turn_on', label: 'scene.turn_on — Activate Scene' },
         { value: 'script.turn_on', label: 'script.turn_on — Run Script' },
@@ -325,13 +541,34 @@ export class GuardianAlertsCardEditor extends LitElement {
 
     const nextAlerts = this.config.alerts.map((rule, i) => {
       if (i !== index) return rule;
+
+      const selectedStates: string[] = Array.isArray(value.states)
+        ? value.states.map((s: any) => String(s).trim()).filter(Boolean)
+        : value.states !== undefined && String(value.states).trim() !== ''
+          ? [String(value.states).trim()]
+          : [];
+
       const updated: AlertRule = {
         ...rule,
         entity: value.entity ?? rule.entity ?? '',
-        state: value.state ?? rule.state ?? '',
+        operator: (value.operator || rule.operator || 'equals') as StateOperator,
+        state: selectedStates.length === 1 ? selectedStates[0] : selectedStates,
         template: ((value.template || rule.template || 'INFO') as string).toUpperCase() as AlertSeverity,
         message: value.message ?? rule.message ?? '',
       };
+
+      delete updated.states;
+
+      if (value.for && !this.isZeroDuration(value.for)) {
+        updated.for = {
+          hours: Number(value.for.hours || 0),
+          minutes: Number(value.for.minutes || 0),
+          seconds: Number(value.for.seconds || 0),
+        };
+      } else {
+        delete updated.for;
+        delete updated.duration;
+      }
 
       if (value.icon && value.icon.trim() !== '') {
         updated.icon = value.icon.trim();
@@ -364,7 +601,8 @@ export class GuardianAlertsCardEditor extends LitElement {
         ...existing,
         {
           entity: '',
-          state: '',
+          state: [],
+          operator: 'equals',
           template: 'WARNING',
           message: 'New Guardian Alert',
         },
@@ -526,6 +764,7 @@ export class GuardianAlertsCardEditor extends LitElement {
         ${this.config.alerts.map((rule, index) => {
           const tpl = getTemplate(rule.template || rule.severity);
           const services = this.normalizeOnActiveList(rule);
+          const selectedStates = this.normalizeRuleStates(rule);
           const entityStateObj = rule.entity ? this.hass?.states?.[rule.entity] : undefined;
           const unit = entityStateObj?.attributes?.unit_of_measurement;
           const liveStateDisplay =
@@ -535,7 +774,9 @@ export class GuardianAlertsCardEditor extends LitElement {
 
           const ruleFormData = {
             entity: rule.entity || '',
-            state: rule.state !== undefined && rule.state !== null ? String(rule.state) : '',
+            operator: rule.operator || 'equals',
+            states: selectedStates,
+            for: this.normalizeDurationObject(rule.for ?? rule.duration),
             template: (rule.template || rule.severity || 'INFO').toUpperCase(),
             icon: rule.icon || '',
             message: rule.message || '',
@@ -560,7 +801,12 @@ export class GuardianAlertsCardEditor extends LitElement {
               <ha-form
                 .hass=${this.hass}
                 .data=${ruleFormData}
-                .schema=${this.getRuleSchema(rule.entity, tpl.defaultIcon, liveStateDisplay)}
+                .schema=${this.getRuleSchema(
+                  rule.entity,
+                  tpl.defaultIcon,
+                  selectedStates,
+                  liveStateDisplay
+                )}
                 .computeLabel=${this.computeLabel}
                 .computeHelper=${this.computeHelper}
                 @value-changed=${(ev: CustomEvent) => this.onRuleFormChanged(index, ev)}
