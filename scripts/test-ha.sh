@@ -120,21 +120,21 @@ views:
             entity: input_boolean.perimeter_intrusion
             state: "on"
             template: CRITICAL
-            message: "Perimeter Intrusion Detected! (Tap to dismiss)"
-            tap_action:
-              action: dismiss
+            chime: urgent_alarm
+            message: "Perimeter Intrusion Detected! (Hold to Snooze or Dismiss)"
           - priority: P2
-            entity: binary_sensor.garage_entry_door
+            entities:
+              - binary_sensor.garage_entry_door
             state: "on"
             template: WARNING
-            message: "Garage door opened (Tap to snooze 30m)"
+            chime: double_beep
+            message: "{{ name }} opened (Hold to Snooze or Dismiss)"
             icon: mdi:garage-open
-            tap_action:
-              action: snooze_30m
           - priority: P3
             entity: alarm_control_panel.main_alarm
             state: "disarmed"
             template: INFO
+            chime: soft_chime
             message: "Main Alarm is Disarmed (Static Origami INFO)"
 EOF
 
@@ -168,23 +168,24 @@ OVERVIEW_STORAGE_JSON='{
                   "entity": "input_boolean.perimeter_intrusion",
                   "state": "on",
                   "template": "CRITICAL",
-                  "message": "Perimeter Intrusion Detected! (Tap to dismiss)",
-                  "tap_action": { "action": "dismiss" }
+                  "chime": "urgent_alarm",
+                  "message": "Perimeter Intrusion Detected! (Hold to Snooze or Dismiss)"
                 },
                 {
                   "priority": "P2",
-                  "entity": "binary_sensor.garage_entry_door",
+                  "entities": ["binary_sensor.garage_entry_door"],
                   "state": "on",
                   "template": "WARNING",
-                  "message": "Garage door opened (Tap to snooze 30m)",
-                  "icon": "mdi:garage-open",
-                  "tap_action": { "action": "snooze_30m", "snooze_minutes": 30 }
+                  "chime": "double_beep",
+                  "message": "{{ name }} opened (Hold to Snooze or Dismiss)",
+                  "icon": "mdi:garage-open"
                 },
                 {
                   "priority": "P3",
                   "entity": "alarm_control_panel.main_alarm",
                   "state": "disarmed",
                   "template": "INFO",
+                  "chime": "soft_chime",
                   "message": "Main Alarm is Disarmed (Static Origami INFO)"
                 }
               ]

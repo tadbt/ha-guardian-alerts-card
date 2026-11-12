@@ -116,7 +116,7 @@
     </details>
 
     <div class="service-log" id="service-log">
-        <div><strong>Event Log</strong> (tap a banner to dismiss or snooze, or toggle states above):</div>
+        <div><strong>Event Log</strong> (press &amp; hold any alert banner to choose <strong>Snooze 30m</strong> or <strong>Dismiss</strong>; toggle states to hear chime notifications):</div>
     </div>
 
     <script type="module">
@@ -161,11 +161,33 @@
         }
 
         // 2. Mock Home Assistant state machine
+        const nowIso = new Date(Date.now() - 4 * 60 * 1000).toISOString();
         const mockHass = {
             states: {
-                'binary_sensor.garage_entry_door': { state: 'on', entity_id: 'binary_sensor.garage_entry_door' },
-                'alarm_control_panel.main_alarm': { state: 'triggered', entity_id: 'alarm_control_panel.main_alarm' },
-                'binary_sensor.front_porch_motion': { state: 'on', entity_id: 'binary_sensor.front_porch_motion' },
+                'binary_sensor.garage_entry_door': {
+                    state: 'on',
+                    entity_id: 'binary_sensor.garage_entry_door',
+                    last_changed: nowIso,
+                    attributes: { friendly_name: 'Garage Entry Door' }
+                },
+                'binary_sensor.back_patio_door': {
+                    state: 'on',
+                    entity_id: 'binary_sensor.back_patio_door',
+                    last_changed: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+                    attributes: { friendly_name: 'Back Patio Door' }
+                },
+                'alarm_control_panel.main_alarm': {
+                    state: 'triggered',
+                    entity_id: 'alarm_control_panel.main_alarm',
+                    last_changed: new Date(Date.now() - 45 * 1000).toISOString(),
+                    attributes: { friendly_name: 'Main Alarm' }
+                },
+                'binary_sensor.front_porch_motion': {
+                    state: 'on',
+                    entity_id: 'binary_sensor.front_porch_motion',
+                    last_changed: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
+                    attributes: { friendly_name: 'Front Porch Motion' }
+                },
             },
             callService: (domain, service, serviceData, target) => {
                 console.log(`[HASS SERVICE CALL] -> ${domain}.${service}`, { serviceData, target });
@@ -173,7 +195,7 @@
             }
         };
 
-        // 3. Card Configuration (icons omitted on INFO and CRITICAL to showcase default icons!)
+        // 3. Card Configuration showcasing multi-entity monitoring, chimes, and on-hold Snooze/Dismiss
         let currentConfig = {
             type: 'custom:guardian-alerts-card',
             alerts: [
@@ -182,24 +204,27 @@
                     entity: 'binary_sensor.front_porch_motion',
                     state: 'on',
                     template: 'INFO',
-                    message: 'Front porch delivery box unlocked (Tap to dismiss)',
-                    tap_action: { action: 'dismiss' },
+                    chime: 'soft_chime',
+                    message: 'Front porch delivery box unlocked',
                 },
                 {
                     priority: 'P2',
-                    entity: 'binary_sensor.garage_entry_door',
+                    entities: [
+                        'binary_sensor.garage_entry_door',
+                        'binary_sensor.back_patio_door'
+                    ],
                     state: 'on',
                     template: 'WARNING',
-                    message: 'Garage door opened (Tap to snooze 30m)',
-                    tap_action: { action: 'snooze_30m', snooze_minutes: 30 },
+                    chime: 'double_beep',
+                    message: '{{ name }} is open',
                 },
                 {
                     priority: 'P1',
                     entity: 'alarm_control_panel.main_alarm',
                     state: 'triggered',
                     template: 'CRITICAL',
-                    message: 'Perimeter Intrusion Detected! (Tap to dismiss)',
-                    tap_action: { action: 'dismiss' },
+                    chime: 'urgent_alarm',
+                    message: 'Perimeter Intrusion Detected!',
                 }
             ]
         };
@@ -225,6 +250,7 @@
             mockHass.states['binary_sensor.garage_entry_door'] = {
                 ...mockHass.states['binary_sensor.garage_entry_door'],
                 state: next,
+                last_changed: new Date().toISOString(),
             };
             appendLog(`State binary_sensor.garage_entry_door -> ${next}`);
             card.hass = { ...mockHass, states: { ...mockHass.states } };
@@ -236,6 +262,7 @@
             mockHass.states['alarm_control_panel.main_alarm'] = {
                 ...mockHass.states['alarm_control_panel.main_alarm'],
                 state: next,
+                last_changed: new Date().toISOString(),
             };
             appendLog(`State alarm_control_panel.main_alarm -> ${next}`);
             card.hass = { ...mockHass, states: { ...mockHass.states } };
@@ -247,23 +274,33 @@
             mockHass.states['binary_sensor.front_porch_motion'] = {
                 ...mockHass.states['binary_sensor.front_porch_motion'],
                 state: next,
+                last_changed: new Date().toISOString(),
             };
             appendLog(`State binary_sensor.front_porch_motion -> ${next}`);
             card.hass = { ...mockHass, states: { ...mockHass.states } };
         });
 
         document.getElementById('clear-all').addEventListener('click', () => {
+            const now = new Date().toISOString();
             mockHass.states['binary_sensor.garage_entry_door'] = {
                 ...mockHass.states['binary_sensor.garage_entry_door'],
                 state: 'off',
+                last_changed: now,
+            };
+            mockHass.states['binary_sensor.back_patio_door'] = {
+                ...mockHass.states['binary_sensor.back_patio_door'],
+                state: 'off',
+                last_changed: now,
             };
             mockHass.states['alarm_control_panel.main_alarm'] = {
                 ...mockHass.states['alarm_control_panel.main_alarm'],
                 state: 'disarmed',
+                last_changed: now,
             };
             mockHass.states['binary_sensor.front_porch_motion'] = {
                 ...mockHass.states['binary_sensor.front_porch_motion'],
                 state: 'off',
+                last_changed: now,
             };
             appendLog('All sensors cleared -> showing default "All Secured" banner');
             card.hass = { ...mockHass, states: { ...mockHass.states } };

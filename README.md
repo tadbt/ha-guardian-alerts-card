@@ -20,10 +20,12 @@ A modern, origami-inspired security and status alert banner card for **Home Assi
   - `INFO`: Blue, static origami banner (`mdi:information-outline`).
   - `WARNING`: Amber, slow `3.8s` breathing flash across the surface facets and icon (`mdi:alert`).
   - `CRITICAL`: Red, urgent `2.6s` slow pulse across the surface, inner glow, and icon (`mdi:shield-alert`).
-- **Theme-Aware Colors & Icons**: Automatically blends with your active Home Assistant theme (`--ha-card-background`, `--success-color`, `--info-color`, `--warning-color`, `--error-color`, `--state-icon-color`) via CSS `color-mix()`.
+- **Multi-Entity Monitoring (`entities`)**: Monitor one or multiple entities in a single rule—each matching entity displays its own alert banner independently.
+- **Entity Last-Changed Badge (`🕒`)**: Displays a live relative timestamp badge (e.g., `Just now`, `5m ago`, `1h 20m ago`, with full timestamp on hover) showing when the triggered entity entered its current state.
+- **Built-in Chime Notifications (`chime`)**: Choose from built-in Web Audio chime styles (`soft_chime`, `double_beep`, `urgent_alarm`, or `none`) that play when an alert activates—no external audio files required.
+- **On-Hold Action Menu (Snooze 30m or Dismiss)**: Press and hold any active alert banner (or right-click on desktop) to bring up an inline choice menu to **Snooze 30m** or **Dismiss** that alert. Short-tapping opens Home Assistant's entity More-Info dialog.
 - **Time-in-State Delays (`for`)**: Optionally require an entity to remain in its matching state for a configured duration (e.g., `00:05:00`) before showing the banner.
-- **Dismiss or Snooze on Tap**: Tap an active alert banner to dismiss it (until the entity clears and re-triggers) or snooze it for 30 minutes.
-- **Native Home Assistant Visual Editor (`<ha-form>`)**: Configure priority, alert template, entity, Equal / Not Equal state match, time-in-state delay, icon, message, and tap behavior using Home Assistant's built-in form selectors.
+- **Native Home Assistant Visual Editor (`<ha-form>`)**: Configure priority, alert template, multiple entities, Equal / Not Equal state match, time-in-state delay, chime notification (with live sound preview), icon, and message using Home Assistant's built-in form selectors.
 
 ---
 
@@ -60,25 +62,26 @@ alerts:
     template: CRITICAL
     entity: alarm_control_panel.main_alarm
     state: "triggered"
+    chime: urgent_alarm
     message: "Perimeter Intrusion Detected!"
-    tap_action:
-      action: dismiss
 
   - priority: P2
     template: WARNING
-    entity: binary_sensor.garage_entry_door
+    entities:
+      - binary_sensor.garage_entry_door
+      - binary_sensor.back_patio_door
     state: "on"
     for:
       minutes: 5
+    chime: double_beep
     icon: mdi:garage-open
-    message: "Garage door has been open for 5+ minutes"
-    tap_action:
-      action: snooze_30m
+    message: "{{ name }} has been open for 5+ minutes"
 
   - priority: P3
     template: INFO
     entity: alarm_control_panel.main_alarm
     state: "disarmed"
+    chime: soft_chime
     message: "Security system is currently disarmed"
 ```
 
@@ -90,14 +93,14 @@ alerts:
 | :--- | :--- | :---: | :--- | :--- |
 | `priority` | `'P1' \| 'P2' \| 'P3' \| 'P4'` | No | `'P2'` | Priority level (`P1` highest to `P4` lowest). Active alerts and rules are automatically ordered by priority. |
 | `template` | `'SECURE' \| 'INFO' \| 'WARNING' \| 'CRITICAL'` | No | `'INFO'` | Controls the color palette, default icon, and slow-flashing behavior. |
-| `entity` | `string` | **Yes** | — | Home Assistant entity ID to monitor (e.g., `sensor.temperature`, `person.john`, `binary_sensor.front_door`). |
+| `entities` / `entity` | `string[] \| string` | **Yes** | — | One or more Home Assistant entity IDs to monitor. Each matching entity triggers its own banner. |
 | `operator` | `'equals' \| 'not_equals' \| 'contains'` | No | `'equals'` | How to compare the entity's state against `state`: **Equal (`=`)** or **Not Equal (`≠`)** in the Visual Editor; `contains` is also supported in YAML. |
 | `state` | `string \| number \| Array<string \| number>` | **Yes** | — | Single state/value or list of multiple trigger states (e.g., `"on"`, `["open", "opening"]`, `["armed_away", "armed_home"]`). |
-| `for` | `{ hours?, minutes?, seconds? } \| string \| number` | No | `0` (immediate) | How long the entity must stay in the matching state before the alert shows (e.g., `{ minutes: 5 }`, `"00:05:00"`, or `30`). |
+| `for` | `{ hours?, minutes?, seconds? } \| string \| number` | No | `0` (immediate) | How long an entity must stay in the matching state before the alert shows (e.g., `{ minutes: 5 }`, `"00:05:00"`, or `30`). |
+| `chime` | `'none' \| 'soft_chime' \| 'double_beep' \| 'urgent_alarm'` | No | `'none'` | Plays a built-in Web Audio notification sound when the alert activates. |
 | `icon` | `string` | No | Template default | Custom icon (e.g., `mdi:garage-open`). Defaults to `mdi:shield-check` (`SECURE`), `mdi:information-outline` (`INFO`), `mdi:alert` (`WARNING`), or `mdi:shield-alert` (`CRITICAL`). |
 | `icon_color` | `string` | No | Theme blend | Optional CSS color override for this alert's icon (e.g., `"#22d3ee"`). |
-| `message` | `string` | No | `<entity name> is <state>` | Alert text displayed on the banner (supports `{{ state }}` and `{{ entity }}`). Leave empty to use the automatic text. |
-| `tap_action` | `{ action: 'dismiss' \| 'snooze_30m' \| 'none', snooze_minutes?: number }` | No | `{ action: 'dismiss' }` | Dismisses the banner until the state clears, snoozes it for 30 minutes, or does nothing (`none`). |
+| `message` | `string` | No | `<entity name> is <state>` | Alert text displayed on the banner (supports `{{ name }}`, `{{ state }}`, and `{{ entity }}`). Leave empty to use the automatic text. |
 
 ---
 
@@ -119,7 +122,7 @@ The card automatically adapts to your active Home Assistant theme using these CS
 ## 🧪 Local Development & Testing
 
 ### 1. Fast Browser Harness (Vite Hot Reload)
-Includes interactive state toggles, a live theme switcher, and the embedded Visual Editor:
+Includes interactive state toggles, chime preview, on-hold Snooze/Dismiss menu, live theme switcher, and the embedded Visual Editor:
 ```bash
 npm install
 npm run dev

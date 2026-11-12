@@ -1,10 +1,12 @@
 import { LitElement, PropertyValues, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { HomeAssistant } from 'custom-card-helpers';
-import { ActionConfig, baseCardStyles, getTemplate } from './templates';
+import { baseCardStyles, getTemplate } from './templates';
+import { playChime } from './chime';
 import {
   AlertPriority,
   AlertRule,
+  ChimeType,
   DurationConfig,
   GuardianAlertsCardConfig,
   StateOperator,
@@ -14,6 +16,7 @@ import './editor';
 export type {
   AlertPriority,
   AlertRule,
+  ChimeType,
   DurationConfig,
   GuardianAlertsCardConfig,
   StateOperator,
@@ -43,7 +46,7 @@ if (!window.customCards.some((c) => c.type === 'guardian-alerts-card')) {
     type: 'guardian-alerts-card',
     name: 'Guardian Alerts Card',
     description:
-      'Origami-styled security & status alert banners with slow flashing, time-in-state delays, priority sorting, and dismiss/snooze.',
+      'Origami-styled security & status alert banners with multi-entity monitoring, chime notifications, last-changed badge, and on-hold snooze/dismiss.',
     preview: true,
   });
 }
@@ -52,20 +55,38 @@ if (!window.customCards.some((c) => c.type === 'guardian-alerts-card')) {
 export class GuardianAlertsCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
   @state() private config!: GuardianAlertsCardConfig;
+  @state() private holdMenuKey: string | null = null;
 
+  private holdTimeout?: number;
+  private isHolding = false;
+  private relativeTimeInterval?: number;
+  private activeEntryKeys = new Set<string>();
   private matchedSinceMap = new Map<string, number>();
   private durationTimers = new Map<string, number>();
-  private dismissedRuleKeys = new Set<string>();
+  private dismissedEntryKeys = new Set<string>();
   private snoozedUntilMap = new Map<string, number>();
   private snoozeTimers = new Map<string, number>();
   private hasInitializedStates = false;
 
+  public connectedCallback(): void {
+    super.connectedCallback();
+    // Refresh relative "last changed" badges every 30s
+    this.relativeTimeInterval = window.setInterval(() => {
+      this.requestUpdate();
+    }, 30_000);
+  }
+
   public disconnectedCallback(): void {
     super.disconnectedCallback();
+    if (this.relativeTimeInterval !== undefined) {
+      window.clearInterval(this.relativeTimeInterval);
+      this.relativeTimeInterval = undefined;
+    }
     this.clearAllTimers();
   }
 
   private clearAllTimers(): void {
+    window.clearTimeout(this.holdTimeout);
     for (const timerId of this.durationTimers.values()) {
       window.clearTimeout(timerId);
     }
@@ -77,12 +98,12 @@ export class GuardianAlertsCard extends LitElement {
     this.snoozeTimers.clear();
   }
 
-  private clearSnoozeForRule(ruleKey: string): void {
-    this.snoozedUntilMap.delete(ruleKey);
-    const timerId = this.snoozeTimers.get(ruleKey);
+  private clearSnoozeForEntry(entryKey: string): void {
+    this.snoozedUntilMap.delete(entryKey);
+    const timerId = this.snoozeTimers.get(entryKey);
     if (timerId !== undefined) {
       window.clearTimeout(timerId);
-      this.snoozeTimers.delete(ruleKey);
+      this.snoozeTimers.delete(entryKey);
     }
   }
 
@@ -101,13 +122,13 @@ export class GuardianAlertsCard extends LitElement {
       },
       alerts: [
         {
-          entity: '',
+          entities: [],
           state: [],
           operator: 'equals',
           priority: 'P1',
           template: 'WARNING',
+          chime: 'none',
           message: '',
-          tap_action: { action: 'dismiss' },
         },
       ],
     };
@@ -120,10 +141,27 @@ export class GuardianAlertsCard extends LitElement {
       ...config,
       alerts: Array.isArray(config.alerts) ? config.alerts : [],
     };
+    this.holdMenuKey = null;
+    this.activeEntryKeys.clear();
     this.matchedSinceMap.clear();
-    this.dismissedRuleKeys.clear();
+    this.dismissedEntryKeys.clear();
     this.snoozedUntilMap.clear();
     this.hasInitializedStates = false;
+  }
+
+  private getMonitoredEntities(rule: AlertRule): string[] {
+    const raw: string[] = [];
+    if (Array.isArray(rule.entities)) {
+      for (const e of rule.entities) {
+        if (typeof e === 'string' && e.trim() !== '') {
+          raw.push(e.trim());
+        }
+      }
+    }
+    if (typeof rule.entity === 'string' && rule.entity.trim() !== '') {
+      raw.push(rule.entity.trim());
+    }
+    return Array.from(new Set(raw));
   }
 
   private getTargetStates(rule: AlertRule): string[] {
@@ -187,11 +225,11 @@ export class GuardianAlertsCard extends LitElement {
     return 0;
   }
 
-  private getRuleKey(rule: AlertRule, index: number): string {
+  private getEntryKey(rule: AlertRule, index: number, entityId: string): string {
     const statesKey = this.getTargetStates(rule).map((s) => s.toLowerCase()).join('|');
     const op = rule.operator || 'equals';
     const dur = this.parseDurationMs(rule.for ?? rule.duration);
-    return `${index}::${rule.entity || ''}:${op}:${statesKey}:${dur}`;
+    return `${index}::${entityId}::${op}::${statesKey}::${dur}`;
   }
 
   private matchesSingleExpected(
@@ -234,12 +272,12 @@ export class GuardianAlertsCard extends LitElement {
     return actualRaw.toLowerCase() === expectedRaw.toLowerCase();
   }
 
-  private doesRuleStateMatch(rule: AlertRule): boolean {
-    if (!rule.entity) return false;
+  private doesEntityMatchRule(rule: AlertRule, entityId: string): boolean {
+    if (!entityId) return false;
     const targets = this.getTargetStates(rule);
     if (targets.length === 0) return false;
 
-    const stateObj = this.hass?.states?.[rule.entity];
+    const stateObj = this.hass?.states?.[entityId];
     if (!stateObj || stateObj.state === undefined || stateObj.state === null) return false;
     const actualRaw = String(stateObj.state).trim();
     const operator: StateOperator = rule.operator || 'equals';
@@ -257,16 +295,16 @@ export class GuardianAlertsCard extends LitElement {
     return targets.some((expected) => this.matchesSingleExpected(actualRaw, expected, 'equals'));
   }
 
-  private isRuleActive(rule: AlertRule, index: number): boolean {
-    const ruleKey = this.getRuleKey(rule, index);
-    const matched = this.doesRuleStateMatch(rule);
+  private isEntityEntryActive(rule: AlertRule, index: number, entityId: string): boolean {
+    const entryKey = this.getEntryKey(rule, index, entityId);
+    const matched = this.doesEntityMatchRule(rule, entityId);
 
     if (!matched) {
-      this.matchedSinceMap.delete(ruleKey);
-      const timerId = this.durationTimers.get(ruleKey);
+      this.matchedSinceMap.delete(entryKey);
+      const timerId = this.durationTimers.get(entryKey);
       if (timerId !== undefined) {
         window.clearTimeout(timerId);
-        this.durationTimers.delete(ruleKey);
+        this.durationTimers.delete(entryKey);
       }
       return false;
     }
@@ -276,9 +314,9 @@ export class GuardianAlertsCard extends LitElement {
       return true;
     }
 
-    let matchedSince = this.matchedSinceMap.get(ruleKey);
+    let matchedSince = this.matchedSinceMap.get(entryKey);
     if (matchedSince === undefined) {
-      const stateObj = this.hass?.states?.[rule.entity];
+      const stateObj = this.hass?.states?.[entityId];
       const lastChangedMs = stateObj?.last_changed ? Date.parse(stateObj.last_changed) : NaN;
       if (!this.hasInitializedStates && !Number.isNaN(lastChangedMs) && lastChangedMs <= Date.now()) {
         matchedSince = lastChangedMs;
@@ -287,76 +325,119 @@ export class GuardianAlertsCard extends LitElement {
       } else {
         matchedSince = Date.now();
       }
-      this.matchedSinceMap.set(ruleKey, matchedSince);
+      this.matchedSinceMap.set(entryKey, matchedSince);
     }
 
     const elapsedMs = Date.now() - matchedSince;
     if (elapsedMs >= requiredMs) {
-      const timerId = this.durationTimers.get(ruleKey);
+      const timerId = this.durationTimers.get(entryKey);
       if (timerId !== undefined) {
         window.clearTimeout(timerId);
-        this.durationTimers.delete(ruleKey);
+        this.durationTimers.delete(entryKey);
       }
       return true;
     }
 
-    if (!this.durationTimers.has(ruleKey)) {
+    if (!this.durationTimers.has(entryKey)) {
       const remainingMs = Math.max(20, requiredMs - elapsedMs + 25);
       const timerId = window.setTimeout(() => {
-        this.durationTimers.delete(ruleKey);
+        this.durationTimers.delete(entryKey);
         this.evaluateRules();
         this.requestUpdate();
       }, remainingMs);
-      this.durationTimers.set(ruleKey, timerId);
+      this.durationTimers.set(entryKey, timerId);
     }
 
     return false;
   }
 
-  private isRuleSuppressed(ruleKey: string): boolean {
-    if (this.dismissedRuleKeys.has(ruleKey)) {
+  private isEntrySuppressed(entryKey: string): boolean {
+    if (this.dismissedEntryKeys.has(entryKey)) {
       return true;
     }
-    const snoozedUntil = this.snoozedUntilMap.get(ruleKey);
+    const snoozedUntil = this.snoozedUntilMap.get(entryKey);
     if (snoozedUntil !== undefined) {
       if (Date.now() < snoozedUntil) {
         return true;
       }
-      this.clearSnoozeForRule(ruleKey);
+      this.clearSnoozeForEntry(entryKey);
     }
     return false;
   }
 
   private evaluateRules(): void {
     if (!this.hass || !this.config) return;
+    const nextActiveKeys = new Set<string>();
 
     (this.config.alerts || []).forEach((rule, index) => {
-      const key = this.getRuleKey(rule, index);
-      const active = this.isRuleActive(rule, index);
+      const entities = this.getMonitoredEntities(rule);
+      for (const entityId of entities) {
+        const entryKey = this.getEntryKey(rule, index, entityId);
+        const active = this.isEntityEntryActive(rule, index, entityId);
 
-      if (!active) {
-        // Reset dismiss & snooze state when the underlying alert condition clears
-        this.dismissedRuleKeys.delete(key);
-        this.clearSnoozeForRule(key);
+        if (active) {
+          nextActiveKeys.add(entryKey);
+          if (
+            this.hasInitializedStates &&
+            !this.activeEntryKeys.has(entryKey) &&
+            !this.isEntrySuppressed(entryKey) &&
+            rule.chime &&
+            rule.chime !== 'none'
+          ) {
+            playChime(rule.chime);
+          }
+        } else {
+          // Reset dismiss, snooze, and open hold menu when condition clears
+          this.dismissedEntryKeys.delete(entryKey);
+          this.clearSnoozeForEntry(entryKey);
+          if (this.holdMenuKey === entryKey) {
+            this.holdMenuKey = null;
+          }
+        }
       }
     });
 
+    this.activeEntryKeys = nextActiveKeys;
     this.hasInitializedStates = true;
   }
 
-  private formatMessage(rule: AlertRule): string {
+  private formatMessage(rule: AlertRule, entityId: string): string {
     const rawMsg = (rule.message || '').trim();
-    if (!rule.entity) return rawMsg;
-    const stateObj = this.hass?.states?.[rule.entity];
+    if (!entityId) return rawMsg;
+    const stateObj = this.hass?.states?.[entityId];
     const currentVal = stateObj?.state ?? '';
+    const friendlyName = stateObj?.attributes?.friendly_name || entityId;
+
     if (!rawMsg) {
-      // No message configured: fall back to "<friendly name> is <state>"
-      const name = stateObj?.attributes?.friendly_name || rule.entity;
-      return stateObj ? `${name} is ${currentVal}` : String(name);
+      return stateObj ? `${friendlyName} is ${currentVal}` : String(friendlyName);
     }
     return rawMsg
       .replace(/\{\{\s*state\s*\}\}/g, String(currentVal))
-      .replace(/\{\{\s*entity\s*\}\}/g, rule.entity);
+      .replace(/\{\{\s*entity\s*\}\}/g, entityId)
+      .replace(/\{\{\s*(?:name|friendly_name)\s*\}\}/g, String(friendlyName));
+  }
+
+  private formatLastChanged(entityId: string): { relative: string; full: string } | null {
+    if (!entityId) return null;
+    const raw = this.hass?.states?.[entityId]?.last_changed;
+    if (!raw) return null;
+    const ts = Date.parse(raw);
+    if (Number.isNaN(ts)) return null;
+
+    const diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    const full = new Date(ts).toLocaleString();
+
+    if (diffSec < 15) return { relative: 'Just now', full };
+    if (diffSec < 60) return { relative: `${diffSec}s ago`, full };
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return { relative: `${diffMin}m ago`, full };
+    const diffHr = Math.floor(diffMin / 60);
+    const remMin = diffMin % 60;
+    if (diffHr < 24) {
+      return { relative: remMin > 0 ? `${diffHr}h ${remMin}m ago` : `${diffHr}h ago`, full };
+    }
+    const diffDays = Math.floor(diffHr / 24);
+    return { relative: `${diffDays}d ago`, full };
   }
 
   protected updated(changedProps: PropertyValues): void {
@@ -368,61 +449,111 @@ export class GuardianAlertsCard extends LitElement {
     }
   }
 
-  private onBannerTap(rule: AlertRule, index: number | null): void {
-    if (index === null) {
-      // Default "All Secured" banner: open More-Info if an entity was configured on it
-      if (rule.entity) {
-        window.dispatchEvent(
-          new CustomEvent('hass-more-info', {
-            bubbles: true,
-            composed: true,
-            detail: { entityId: rule.entity },
-          })
-        );
-      }
+  private onBannerPointerDown(entryKey: string | null): void {
+    if (!entryKey || this.holdMenuKey === entryKey) return;
+    this.isHolding = false;
+    window.clearTimeout(this.holdTimeout);
+    this.holdTimeout = window.setTimeout(() => {
+      this.isHolding = true;
+      this.holdMenuKey = entryKey;
+    }, 450);
+  }
+
+  private onBannerPointerUp(entityId: string, entryKey: string | null): void {
+    window.clearTimeout(this.holdTimeout);
+    if (this.isHolding) {
+      this.isHolding = false;
       return;
     }
-
-    const act = rule.tap_action?.action || 'dismiss';
-    const ruleKey = this.getRuleKey(rule, index);
-
-    if (act === 'dismiss') {
-      this.dismissedRuleKeys.add(ruleKey);
-      this.requestUpdate();
+    if (entryKey && this.holdMenuKey === entryKey) {
       return;
     }
-
-    if (act === 'snooze' || act === 'snooze_30m' || act === 'delay_30m') {
-      const mins = Number(rule.tap_action?.snooze_minutes || 30);
-      const delayMs = Math.max(1000, mins * 60 * 1000);
-      this.clearSnoozeForRule(ruleKey);
-      this.snoozedUntilMap.set(ruleKey, Date.now() + delayMs);
-
-      const timerId = window.setTimeout(() => {
-        this.snoozeTimers.delete(ruleKey);
-        this.snoozedUntilMap.delete(ruleKey);
-        this.requestUpdate();
-      }, delayMs + 50);
-      this.snoozeTimers.set(ruleKey, timerId);
-      this.requestUpdate();
+    if (entityId) {
+      window.dispatchEvent(
+        new CustomEvent('hass-more-info', {
+          bubbles: true,
+          composed: true,
+          detail: { entityId },
+        })
+      );
     }
+  }
+
+  private onBannerPointerCancel(): void {
+    window.clearTimeout(this.holdTimeout);
+    this.isHolding = false;
+  }
+
+  private onBannerContextMenu(ev: Event, entryKey: string | null): void {
+    if (!entryKey) return;
+    ev.preventDefault();
+    window.clearTimeout(this.holdTimeout);
+    this.isHolding = false;
+    this.holdMenuKey = entryKey;
+  }
+
+  private handleDismiss(entryKey: string, ev: Event): void {
+    ev.stopPropagation();
+    this.dismissedEntryKeys.add(entryKey);
+    if (this.holdMenuKey === entryKey) {
+      this.holdMenuKey = null;
+    }
+    this.requestUpdate();
+  }
+
+  private handleSnooze30m(entryKey: string, ev: Event): void {
+    ev.stopPropagation();
+    const delayMs = 30 * 60 * 1000;
+    this.clearSnoozeForEntry(entryKey);
+    this.snoozedUntilMap.set(entryKey, Date.now() + delayMs);
+
+    const timerId = window.setTimeout(() => {
+      this.snoozeTimers.delete(entryKey);
+      this.snoozedUntilMap.delete(entryKey);
+      this.requestUpdate();
+    }, delayMs + 50);
+    this.snoozeTimers.set(entryKey, timerId);
+
+    if (this.holdMenuKey === entryKey) {
+      this.holdMenuKey = null;
+    }
+    this.requestUpdate();
+  }
+
+  private handleCancelHoldMenu(ev: Event): void {
+    ev.stopPropagation();
+    this.holdMenuKey = null;
   }
 
   protected render() {
     if (!this.hass || !this.config) return nothing;
 
-    // Collect active and non-dismissed/non-snoozed rules, then sort by Priority (P1 -> P2 -> P3 -> P4)
-    const activeEntries = (this.config.alerts || [])
-      .map((rule, index) => ({ rule, index, key: this.getRuleKey(rule, index) }))
-      .filter(({ rule, index, key }) => this.isRuleActive(rule, index) && !this.isRuleSuppressed(key))
-      .sort((a, b) => {
-        const rankA = PRIORITY_RANK[(a.rule.priority || 'P2').toUpperCase()] ?? 2;
-        const rankB = PRIORITY_RANK[(b.rule.priority || 'P2').toUpperCase()] ?? 2;
-        if (rankA !== rankB) return rankA - rankB;
-        return a.index - b.index;
-      });
+    // Collect active and non-dismissed/non-snoozed (rule, entity) entries, then sort by Priority (P1 -> P2 -> P3 -> P4)
+    const activeEntries: Array<{
+      rule: AlertRule;
+      index: number | null;
+      entityId: string;
+      key: string | null;
+    }> = [];
 
-    let entriesToRender: Array<{ rule: AlertRule; index: number | null }> = activeEntries;
+    (this.config.alerts || []).forEach((rule, index) => {
+      const entities = this.getMonitoredEntities(rule);
+      for (const entityId of entities) {
+        const key = this.getEntryKey(rule, index, entityId);
+        if (this.isEntityEntryActive(rule, index, entityId) && !this.isEntrySuppressed(key)) {
+          activeEntries.push({ rule, index, entityId, key });
+        }
+      }
+    });
+
+    activeEntries.sort((a, b) => {
+      const rankA = PRIORITY_RANK[(a.rule.priority || 'P2').toUpperCase()] ?? 2;
+      const rankB = PRIORITY_RANK[(b.rule.priority || 'P2').toUpperCase()] ?? 2;
+      if (rankA !== rankB) return rankA - rankB;
+      return (a.index ?? 0) - (b.index ?? 0);
+    });
+
+    let entriesToRender = activeEntries;
 
     if (entriesToRender.length === 0) {
       if (this.config.show_default_alert === false) return nothing;
@@ -431,6 +562,8 @@ export class GuardianAlertsCard extends LitElement {
       entriesToRender = [
         {
           index: null,
+          key: null,
+          entityId: defaultAlert?.entity || '',
           rule: {
             entity: defaultAlert?.entity || '',
             state: '',
@@ -445,26 +578,82 @@ export class GuardianAlertsCard extends LitElement {
 
     return html`
       <div class="card-container">
-        ${entriesToRender.map(({ rule, index }) => {
+        ${entriesToRender.map(({ rule, index, entityId, key }) => {
           const tpl = getTemplate(rule.template || rule.severity);
           const icon = rule.icon?.trim() || tpl.defaultIcon;
           const priority = index !== null ? (rule.priority || 'P2').toUpperCase() : null;
           const badgeText = priority ? `${priority} · ${tpl.name}` : tpl.name;
+          const lastChanged = index !== null ? this.formatLastChanged(entityId) : null;
+          const isHoldMenuOpen = key !== null && this.holdMenuKey === key;
 
           return html`
             <div class="banner-wrapper">
               <div
                 class="banner template-${tpl.name.toLowerCase()}"
                 style=${rule.icon_color ? `--custom-icon-color: ${rule.icon_color};` : ''}
-                @click=${() => this.onBannerTap(rule, index)}
+                title=${index !== null ? 'Hold to Snooze or Dismiss' : ''}
+                @pointerdown=${() => this.onBannerPointerDown(key)}
+                @pointerup=${() => this.onBannerPointerUp(entityId, key)}
+                @pointercancel=${() => this.onBannerPointerCancel()}
+                @pointerleave=${() => this.onBannerPointerCancel()}
+                @contextmenu=${(ev: Event) => this.onBannerContextMenu(ev, key)}
               >
                 <div class="icon-wrap">
                   <ha-icon .icon="${icon}"></ha-icon>
                 </div>
                 <div class="content">
-                  <span class="badge">${badgeText}</span>
-                  <span class="message">${this.formatMessage(rule)}</span>
+                  <div class="badge-row">
+                    <span class="badge">${badgeText}</span>
+                    ${lastChanged
+                      ? html`
+                          <span
+                            class="last-changed-badge"
+                            title="Last changed: ${lastChanged.full}"
+                          >
+                            🕒 ${lastChanged.relative}
+                          </span>
+                        `
+                      : nothing}
+                  </div>
+                  <span class="message">${this.formatMessage(rule, entityId)}</span>
                 </div>
+
+                ${isHoldMenuOpen && key
+                  ? html`
+                      <div
+                        class="hold-menu-overlay"
+                        @pointerdown=${(ev: Event) => ev.stopPropagation()}
+                        @pointerup=${(ev: Event) => ev.stopPropagation()}
+                        @click=${(ev: Event) => ev.stopPropagation()}
+                      >
+                        <span class="hold-menu-label">Alert Action:</span>
+                        <div class="hold-menu-actions">
+                          <button
+                            type="button"
+                            class="hold-btn hold-btn-snooze"
+                            @click=${(ev: Event) => this.handleSnooze30m(key, ev)}
+                          >
+                            ⏱️ Snooze 30m
+                          </button>
+                          <button
+                            type="button"
+                            class="hold-btn hold-btn-dismiss"
+                            @click=${(ev: Event) => this.handleDismiss(key, ev)}
+                          >
+                            ✕ Dismiss
+                          </button>
+                          <button
+                            type="button"
+                            class="hold-btn hold-btn-cancel"
+                            @click=${(ev: Event) => this.handleCancelHoldMenu(ev)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    `
+                  : nothing}
+
                 <span class="bottom-ribbon" aria-hidden="true"></span>
               </div>
             </div>

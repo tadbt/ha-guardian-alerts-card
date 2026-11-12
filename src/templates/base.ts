@@ -141,6 +141,14 @@ export const baseCardStyles = css`
     min-width: 0;
   }
 
+  .badge-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+  }
+
   .badge {
     display: inline-block;
     padding: 2px 10px 2px 7px;
@@ -153,6 +161,20 @@ export const baseCardStyles = css`
     clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 100%, 0 100%);
   }
 
+  .last-changed-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--secondary-text-color, #cbd5e1);
+    background: color-mix(in srgb, var(--template-accent-color) 10%, var(--base-surface));
+    border: 1px solid color-mix(in srgb, var(--template-accent-color) 26%, transparent);
+    border-radius: 4px;
+  }
+
   .message {
     width: 100%;
     font-size: 0.95rem;
@@ -162,5 +184,83 @@ export const baseCardStyles = css`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* On-Hold action choice overlay (Snooze 30m / Dismiss) */
+  .hold-menu-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0 16px 6px 16px;
+    background: color-mix(in srgb, var(--base-surface) 92%, #000000 8%);
+    backdrop-filter: blur(6px);
+    animation: fadeInHoldMenu 0.15s ease-out;
+  }
+
+  @keyframes fadeInHoldMenu {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .hold-menu-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--secondary-text-color, #cbd5e1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hold-menu-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .hold-btn {
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 6px 11px;
+    border: 1px solid transparent;
+    transition: transform 0.12s ease, filter 0.12s ease;
+  }
+
+  .hold-btn:hover {
+    filter: brightness(1.12);
+  }
+
+  .hold-btn:active {
+    transform: scale(0.96);
+  }
+
+  .hold-btn-snooze {
+    background: color-mix(in srgb, var(--warning-color, #f59e0b) 22%, var(--base-surface));
+    color: var(--warning-color, #fbbf24);
+    border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 45%, transparent);
+  }
+
+  .hold-btn-dismiss {
+    background: color-mix(in srgb, var(--error-color, #ef4444) 22%, var(--base-surface));
+    color: var(--error-color, #f87171);
+    border-color: color-mix(in srgb, var(--error-color, #ef4444) 45%, transparent);
+  }
+
+  .hold-btn-cancel {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--primary-text-color, #f3f4f6);
+    border-color: rgba(255, 255, 255, 0.14);
   }
 `;

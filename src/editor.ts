@@ -5,12 +5,14 @@ import {
   AlertPriority,
   AlertRule,
   AlertSeverity,
+  ChimeType,
   DefaultAlertConfig,
   DurationConfig,
   GuardianAlertsCardConfig,
   StateOperator,
 } from './types';
 import { getTemplate } from './templates';
+import { normalizeChimeType, playChime } from './chime';
 
 interface HaFormSchemaItem {
   name: string;
@@ -46,10 +48,11 @@ const OPERATOR_OPTIONS = [
   { value: 'not_equals', label: 'Not Equal (≠) — Does not match selected state(s)' },
 ];
 
-const TAP_BEHAVIOR_OPTIONS = [
-  { value: 'dismiss', label: 'Dismiss Alert (Remove from active alerts list)' },
-  { value: 'snooze_30m', label: 'Snooze Alert for 30 Minutes' },
-  { value: 'none', label: 'No Action' },
+const CHIME_OPTIONS = [
+  { value: 'none', label: 'None (Silent)' },
+  { value: 'soft_chime', label: 'Soft Chime (Warm Two-Tone Bell)' },
+  { value: 'double_beep', label: 'Double Beep (Crisp Alert Pip)' },
+  { value: 'urgent_alarm', label: 'Urgent Alarm (High-Priority Pulse)' },
 ];
 
 const DOMAIN_STATE_SUGGESTIONS: Record<string, string[]> = {
@@ -199,6 +202,21 @@ export class GuardianAlertsCardEditor extends LitElement {
     return schema.helper || '';
   };
 
+  private normalizeRuleEntities(rule: AlertRule): string[] {
+    const raw: string[] = [];
+    if (Array.isArray(rule.entities)) {
+      for (const e of rule.entities) {
+        if (typeof e === 'string' && e.trim() !== '') {
+          raw.push(e.trim());
+        }
+      }
+    }
+    if (typeof rule.entity === 'string' && rule.entity.trim() !== '') {
+      raw.push(rule.entity.trim());
+    }
+    return Array.from(new Set(raw));
+  }
+
   private normalizeRuleStates(rule: AlertRule): string[] {
     const raw: Array<string | number | boolean> = [];
     if (Array.isArray(rule.states)) {
@@ -262,15 +280,8 @@ export class GuardianAlertsCardEditor extends LitElement {
     );
   }
 
-  private getTapBehaviorFromRule(rule: AlertRule): string {
-    const act = rule.tap_action?.action;
-    if (act === 'snooze' || act === 'snooze_30m' || act === 'delay_30m') return 'snooze_30m';
-    if (act === 'none') return 'none';
-    return 'dismiss';
-  }
-
-  private getStateOptionsForEntity(
-    entityId: string | undefined,
+  private getStateOptionsForEntities(
+    entityIds: string[],
     selectedStates: string[]
   ): Array<{ value: string; label: string }> {
     const seen = new Set<string>();
@@ -287,45 +298,47 @@ export class GuardianAlertsCardEditor extends LitElement {
       addOption(s);
     }
 
-    const cleanEntity = (entityId || '').trim();
-    const stateObj = cleanEntity ? this.hass?.states?.[cleanEntity] : undefined;
-    if (stateObj) {
-      if (stateObj.state !== undefined && stateObj.state !== null) {
-        const cur = String(stateObj.state).trim();
-        addOption(cur, `${cur} (Current State)`);
-      }
+    for (const rawId of entityIds) {
+      const cleanEntity = (rawId || '').trim();
+      const stateObj = cleanEntity ? this.hass?.states?.[cleanEntity] : undefined;
+      if (stateObj) {
+        if (stateObj.state !== undefined && stateObj.state !== null) {
+          const cur = String(stateObj.state).trim();
+          addOption(cur, `${cur} (Current State)`);
+        }
 
-      const attrs = stateObj.attributes || {};
-      const attrLists = [
-        attrs.options,
-        attrs.hvac_modes,
-        attrs.preset_modes,
-        attrs.operation_list,
-        attrs.fan_modes,
-        attrs.swing_modes,
-        attrs.effect_list,
-        attrs.source_list,
-      ];
-      for (const list of attrLists) {
-        if (Array.isArray(list)) {
-          for (const item of list) {
-            addOption(String(item));
+        const attrs = stateObj.attributes || {};
+        const attrLists = [
+          attrs.options,
+          attrs.hvac_modes,
+          attrs.preset_modes,
+          attrs.operation_list,
+          attrs.fan_modes,
+          attrs.swing_modes,
+          attrs.effect_list,
+          attrs.source_list,
+        ];
+        for (const list of attrLists) {
+          if (Array.isArray(list)) {
+            for (const item of list) {
+              addOption(String(item));
+            }
           }
         }
       }
-    }
 
-    const domain = cleanEntity.includes('.') ? cleanEntity.split('.')[0] : '';
-    if (domain && DOMAIN_STATE_SUGGESTIONS[domain]) {
-      for (const s of DOMAIN_STATE_SUGGESTIONS[domain]) {
-        addOption(s);
+      const domain = cleanEntity.includes('.') ? cleanEntity.split('.')[0] : '';
+      if (domain && DOMAIN_STATE_SUGGESTIONS[domain]) {
+        for (const s of DOMAIN_STATE_SUGGESTIONS[domain]) {
+          addOption(s);
+        }
       }
-    }
 
-    if ((domain === 'person' || domain === 'device_tracker') && this.hass?.states) {
-      for (const [id, st] of Object.entries(this.hass.states)) {
-        if (id.startsWith('zone.') && st?.attributes?.friendly_name) {
-          addOption(String(st.attributes.friendly_name));
+      if ((domain === 'person' || domain === 'device_tracker') && this.hass?.states) {
+        for (const [id, st] of Object.entries(this.hass.states)) {
+          if (id.startsWith('zone.') && st?.attributes?.friendly_name) {
+            addOption(String(st.attributes.friendly_name));
+          }
         }
       }
     }
@@ -388,15 +401,15 @@ export class GuardianAlertsCardEditor extends LitElement {
   }
 
   private getRuleSchema(
-    entityId: string | undefined,
+    entityIds: string[],
     defaultIcon: string,
     selectedStates: string[],
     liveStateDisplay?: string
   ): HaFormSchemaItem[] {
-    const cleanEntity = (entityId || '').trim();
-    const stateOptions = this.getStateOptionsForEntity(cleanEntity, selectedStates);
+    const entitiesKey = entityIds.join(',');
+    const stateOptions = this.getStateOptionsForEntities(entityIds, selectedStates);
     const optionsKey = stateOptions.map((o) => o.value).join('|');
-    const cacheKey = `${cleanEntity}::${defaultIcon}::${liveStateDisplay || ''}::${optionsKey}`;
+    const cacheKey = `${entitiesKey}::${defaultIcon}::${liveStateDisplay || ''}::${optionsKey}`;
     const cached = this.ruleSchemaCache.get(cacheKey);
     if (cached) return cached;
 
@@ -426,10 +439,15 @@ export class GuardianAlertsCardEditor extends LitElement {
         },
       },
       {
-        name: 'entity',
-        label: 'Entity (Search any sensor or entity)',
+        name: 'entities',
+        label: 'Entities to Monitor (Select one or more sensors/entities)',
+        helper: 'Alert triggers independently for any selected entity that matches the state below',
         required: true,
-        selector: { entity: {} },
+        selector: {
+          entity: {
+            multiple: true,
+          },
+        },
       },
       {
         name: 'operator',
@@ -458,9 +476,20 @@ export class GuardianAlertsCardEditor extends LitElement {
       {
         name: 'for',
         label: 'Time in State Before Alerting (hh:mm:ss)',
-        helper: 'How long the entity must stay in the matching state before the alert shows (00:00:00 = immediately)',
+        helper: 'How long an entity must stay in the matching state before the alert shows (00:00:00 = immediately)',
         selector: {
           duration: {},
+        },
+      },
+      {
+        name: 'chime',
+        label: 'Chime Notification Sound (Plays when alert activates)',
+        helper: 'Selecting a chime plays a preview sound',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: CHIME_OPTIONS,
+          },
         },
       },
       {
@@ -476,18 +505,8 @@ export class GuardianAlertsCardEditor extends LitElement {
         name: 'message',
         label: 'Alert Message (Optional)',
         helper:
-          'Supports {{ state }} and {{ entity }}. Leave empty to show "<entity name> is <state>".',
+          'Supports {{ name }}, {{ state }}, and {{ entity }}. Leave empty to show "<entity name> is <state>". Hold any active alert banner on the card to Snooze (30m) or Dismiss.',
         selector: { text: {} },
-      },
-      {
-        name: 'tap_behavior',
-        label: 'On Tap Action',
-        selector: {
-          select: {
-            mode: 'dropdown',
-            options: TAP_BEHAVIOR_OPTIONS,
-          },
-        },
       },
     ];
 
@@ -529,11 +548,24 @@ export class GuardianAlertsCardEditor extends LitElement {
     const value = ev.detail?.value;
     if (!value) return;
 
-    const oldPriority = (this.config.alerts[index]?.priority || 'P2').toUpperCase();
+    const currentRule = this.config.alerts[index];
+    const oldPriority = (currentRule?.priority || 'P2').toUpperCase();
     const newPriority = ((value.priority || oldPriority) as string).toUpperCase() as AlertPriority;
+
+    const oldChime = normalizeChimeType(currentRule?.chime);
+    const newChime = normalizeChimeType(value.chime);
+    if (newChime !== oldChime && newChime !== 'none') {
+      playChime(newChime);
+    }
 
     const updatedAlerts = this.config.alerts.map((rule, i) => {
       if (i !== index) return rule;
+
+      const selectedEntities: string[] = Array.isArray(value.entities)
+        ? value.entities.map((e: any) => String(e).trim()).filter(Boolean)
+        : typeof value.entities === 'string' && value.entities.trim() !== ''
+          ? [value.entities.trim()]
+          : [];
 
       const selectedStates: string[] = Array.isArray(value.states)
         ? value.states.map((s: any) => String(s).trim()).filter(Boolean)
@@ -544,12 +576,19 @@ export class GuardianAlertsCardEditor extends LitElement {
       const updated: AlertRule = {
         ...rule,
         priority: newPriority,
-        entity: value.entity ?? rule.entity ?? '',
         operator: (value.operator || rule.operator || 'equals') as StateOperator,
         state: selectedStates.length === 1 ? selectedStates[0] : selectedStates,
         template: ((value.template || rule.template || 'INFO') as string).toUpperCase() as AlertSeverity,
         message: value.message ?? rule.message ?? '',
       };
+
+      if (selectedEntities.length === 1) {
+        updated.entity = selectedEntities[0];
+        delete updated.entities;
+      } else {
+        updated.entities = selectedEntities;
+        delete updated.entity;
+      }
 
       delete updated.states;
 
@@ -564,19 +603,16 @@ export class GuardianAlertsCardEditor extends LitElement {
         delete updated.duration;
       }
 
+      if (newChime !== 'none') {
+        updated.chime = newChime;
+      } else {
+        delete updated.chime;
+      }
+
       if (value.icon && value.icon.trim() !== '') {
         updated.icon = value.icon.trim();
       } else {
         delete updated.icon;
-      }
-
-      const tapBehavior = value.tap_behavior || this.getTapBehaviorFromRule(rule);
-      if (tapBehavior === 'snooze_30m') {
-        updated.tap_action = { action: 'snooze_30m', snooze_minutes: 30 };
-      } else if (tapBehavior === 'none') {
-        updated.tap_action = { action: 'none' };
-      } else {
-        updated.tap_action = { action: 'dismiss' };
       }
 
       return updated;
@@ -602,12 +638,12 @@ export class GuardianAlertsCardEditor extends LitElement {
     const existing = this.config.alerts || [];
     const newRule: AlertRule = {
       priority: 'P2',
-      entity: '',
+      entities: [],
       state: [],
       operator: 'equals',
       template: 'WARNING',
+      chime: 'none',
       message: '',
-      tap_action: { action: 'dismiss' },
     };
 
     const combined = [...existing, newRule];
@@ -696,10 +732,12 @@ export class GuardianAlertsCardEditor extends LitElement {
           const isOpen = this.expandedRuleIndex === index;
           const priority = (rule.priority || 'P2').toUpperCase();
           const tpl = getTemplate(rule.template || rule.severity);
+          const selectedEntities = this.normalizeRuleEntities(rule);
           const selectedStates = this.normalizeRuleStates(rule);
-          const tapBehavior = this.getTapBehaviorFromRule(rule);
+          const chime = normalizeChimeType(rule.chime);
 
-          const entityStateObj = rule.entity ? this.hass?.states?.[rule.entity] : undefined;
+          const firstEntity = selectedEntities[0];
+          const entityStateObj = firstEntity ? this.hass?.states?.[firstEntity] : undefined;
           const unit = entityStateObj?.attributes?.unit_of_measurement;
           const liveStateDisplay =
             entityStateObj?.state !== undefined
@@ -708,15 +746,22 @@ export class GuardianAlertsCardEditor extends LitElement {
 
           const ruleFormData = {
             priority,
-            entity: rule.entity || '',
+            entities: selectedEntities,
             operator: rule.operator || 'equals',
             states: selectedStates,
             for: this.normalizeDurationObject(rule.for ?? rule.duration),
             template: (rule.template || rule.severity || 'INFO').toUpperCase(),
+            chime,
             icon: rule.icon || '',
             message: rule.message || '',
-            tap_behavior: tapBehavior,
           };
+
+          const entitiesSummary =
+            selectedEntities.length === 0
+              ? 'No entity selected'
+              : selectedEntities.length === 1
+                ? selectedEntities[0]
+                : `${selectedEntities[0]} +${selectedEntities.length - 1} more`;
 
           return html`
             <div class="rule-card ${isOpen ? 'expanded' : 'collapsed'}">
@@ -731,8 +776,9 @@ export class GuardianAlertsCardEditor extends LitElement {
                       ${rule.message || `Alert Rule #${index + 1}`} (${tpl.name})
                     </span>
                     <span class="rule-subtitle">
-                      ${rule.entity || 'No entity selected'}
+                      ${entitiesSummary}
                       ${selectedStates.length > 0 ? ` · [${selectedStates.join(', ')}]` : ''}
+                      ${chime !== 'none' ? ` · 🔔 ${chime}` : ''}
                     </span>
                   </div>
                 </div>
@@ -762,7 +808,7 @@ export class GuardianAlertsCardEditor extends LitElement {
                         .hass=${this.hass}
                         .data=${ruleFormData}
                         .schema=${this.getRuleSchema(
-                          rule.entity,
+                          selectedEntities,
                           tpl.defaultIcon,
                           selectedStates,
                           liveStateDisplay
