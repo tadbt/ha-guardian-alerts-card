@@ -5,24 +5,29 @@
 [![Built with Gemini](https://img.shields.io/badge/Built%20with-Gemini-8E75B2?logo=googlegemini&logoColor=white)](https://deepmind.google/technologies/gemini/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-A modern, origami-inspired security and status alert banner card for **Home Assistant Lovelace**. Designed to stay completely hidden when everything is normal and surface high-visibility, theme-aware banners when monitored entities enter an alert state.
+A modern, origami-inspired security and status alert banner card for **Home Assistant Lovelace**. Designed with a **"Half-and-Half" Script-Driven Architecture**: the card watches lightweight entity triggers and delegates complex alert decisions to your Home Assistant Scripts.
 
 > **Tag:** `built-with-gemini`
 
 ---
 
-## ✨ Features
+## ✨ Features (v2.0.0)
 
-- **Origami Geometric Design**: Multi-faceted paper crease gradients, a geometric faceted icon medallion, angled severity badge, and a colored bottom alert ribbon/tape strip.
-- **Default "All Secured" Banner**: Automatically displays a calm green `SECURE` banner (`All Secured` with a `mdi:shield-check` shield icon) when no alert rules are active, and switches to active alert banners as soon as a sensor triggers.
-- **Slow Flashing Animations**:
-  - `SECURE`: Green, static origami banner with shield icon (`mdi:shield-check`).
+- **Script-Driven Alert Decisions (`script` + `response_variable`)**:
+  - Watch a primary `entity` (and optional `state` or additional watched `entities`).
+  - When triggered, the card calls your Home Assistant `script.*` with `{ entity, state, entities, states }`.
+  - Your script uses native Home Assistant conditions and returns `{ message: "..." }` (plus optional dynamic `template`, `priority`, or `icon` overrides). If it returns an empty message (`""`), the alert stays hidden.
+- **Simple Static Rules Included**: For straightforward 1-entity checks, omit `script` and provide a static `message` directly on the rule.
+- **Multi-Entity Watching (`entities`)**: Re-evaluate a rule's decision script automatically whenever any related entity changes state (e.g., watch both `binary_sensor.garage_door` and `person.jack`).
+- **Priority Ordering (`P1` → `P4`)**: Active alerts automatically sort by priority (`P1` at the top down to `P4`).
+- **Default "All Secured" Banner**: Displays a calm green `SECURE` banner (`All Secured` with `mdi:shield-check`) when no alerts are active, or hides completely when `show_default_alert: false`.
+- **Origami Geometric Design & Slow Flashing Animations**:
+  - `SECURE`: Green, static origami banner (`mdi:shield-check`).
   - `INFO`: Blue, static origami banner (`mdi:information-outline`).
-  - `WARNING`: Amber, slow `3.8s` breathing flash across the surface facets and icon (`mdi:alert`).
-  - `CRITICAL`: Red, urgent `2.6s` slow pulse across the surface, inner glow, and icon (`mdi:shield-alert`).
-- **Theme-Aware Colors & Icons**: Automatically blends with your active Home Assistant theme (`--ha-card-background`, `--success-color`, `--info-color`, `--warning-color`, `--error-color`, `--state-icon-color`) via CSS `color-mix()`.
-- **Multi-Service Actions (`on_active`, `tap_action`, `hold_action`)**: Trigger multiple services simultaneously when an alert transitions to active or when tapped/held—for example, activating a lighting `scene` **and** calling a TTS announcement `script` with `{{ message }}`.
-- **Native Home Assistant Visual Editor (`<ha-form>`)**: Search entities/sensors, icons, service calls (`domain.service`), and service targets directly using Home Assistant's built-in form selectors.
+  - `WARNING`: Amber, slow `3.8s` breathing flash (`mdi:alert`).
+  - `CRITICAL`: Red, urgent `2.6s` slow pulse (`mdi:shield-alert`).
+- **Interactive Tap & Hold Actions**: Built-in **Dismiss** (`action: dismiss`), **30-Minute Snooze** (`action: snooze_30m`), `more-info`, `toggle`, or custom Home Assistant service calls.
+- **Native Home Assistant Visual Editor (`<ha-form>`)**: Configure priority, watched entities, trigger states, decision scripts (`domain: script`), templates, and tap actions visually.
 
 ---
 
@@ -50,49 +55,96 @@ A modern, origami-inspired security and status alert banner card for **Home Assi
 
 ## ⚙️ Configuration
 
+### 1. Card YAML Configuration
+
 You can configure the card using the **Visual Editor** (**+ Add Card → Guardian Alerts Card**) or via YAML:
 
 ```yaml
 type: custom:guardian-alerts-card
+show_default_alert: true
+default_alert:
+  template: SECURE
+  message: "All Secured"
+  icon: mdi:shield-check
 alerts:
+  # 1. Script-Driven Rule + Multi-Entity Watch (Option A + B)
+  # Calls `script.check_garage_alert` when garage door is "on" (and re-checks when person.jack changes)
   - entity: binary_sensor.garage_entry_door
+    entities:
+      - person.jack
     state: "on"
+    script: script.check_garage_alert
+    priority: P2
     template: WARNING
-    message: "Garage door is open"
     icon: mdi:garage-open
-    on_active:
-      - service: scene.turn_on
-        target:
-          entity_id: scene.warning_lights
-      - service: script.tts_announce
-        service_data:
-          message: "{{ message }}"
-          media_player: media_player.kitchen_speaker
     tap_action:
-      - service: cover.close_cover
-        target:
-          entity_id: cover.garage_door
+      action: dismiss
 
+  # 2. Simple Static Rule (No script needed)
   - entity: alarm_control_panel.main_alarm
     state: "triggered"
+    priority: P1
     template: CRITICAL
-    message: "Perimeter Intrusion Detected!"
-    # Omit `icon` to use the default CRITICAL icon (mdi:shield-alert)
-    on_active:
-      - service: scene.turn_on
-        target:
-          entity_id: scene.emergency_red_lights
-      - service: script.tts_announce
-        service_data:
-          message: "Critical alert: {{ message }}"
-    hold_action:
-      action: more-info
+    message: "Perimeter Intrusion Detected! ({{ state }})"
+    tap_action:
+      action: call-service
+      service: alarm_control_panel.alarm_disarm
 
-  - entity: alarm_control_panel.main_alarm
-    state: "disarmed"
+  # 3. Informational Banner with 30-Minute Snooze on Tap
+  - entity: binary_sensor.front_porch_package
+    state: "on"
+    priority: P3
     template: INFO
-    message: "Security system is currently disarmed"
+    message: "Package waiting on front porch"
+    tap_action:
+      action: snooze_30m
 ```
+
+### 2. Home Assistant Decision Script Example (`scripts.yaml`)
+
+When the card calls a rule's `script`, it automatically passes:
+- `entity`: Primary entity ID (e.g., `"binary_sensor.garage_entry_door"`)
+- `state`: Current state of the primary entity (e.g., `"on"`)
+- `entities`: Array of all watched entity IDs on the rule
+- `states`: Map of `{ [entity_id]: state }` for all watched entities
+
+Your script uses Home Assistant's `stop` action with `response_variable` to return an object containing `message` (and optional `template`, `priority`, `icon`, `icon_color`, or `active`):
+
+```yaml
+script:
+  check_garage_alert:
+    alias: "Check Garage Alert Decision"
+    fields:
+      entity:
+        description: "Primary triggered entity"
+      state:
+        description: "Current state of primary entity"
+    sequence:
+      # Example: Escalate to CRITICAL P1 if nobody is home
+      - if:
+          - condition: state
+            entity_id: person.jack
+            state: "not_home"
+        then:
+          - variables:
+              decision:
+                message: "Garage door is OPEN while nobody is home!"
+                template: "CRITICAL"
+                priority: "P1"
+          - stop: "Return critical alert"
+            response_variable: decision
+
+      # Otherwise return a standard WARNING (or return message: "" to suppress the alert)
+      - variables:
+          decision:
+            message: "Garage door is open"
+            template: "WARNING"
+            priority: "P2"
+      - stop: "Return warning alert"
+        response_variable: decision
+```
+
+> **Tip:** To suppress an alert from showing, return `message: ""` (or `active: false`) in your script's `response_variable`.
 
 ---
 
@@ -100,24 +152,18 @@ alerts:
 
 | Key | Type | Required | Default | Description |
 | :--- | :--- | :---: | :--- | :--- |
-| `priority` | `'P1' \| 'P2' \| 'P3' \| 'P4'` | No | `'P2'` | Priority level (`P1` highest to `P4` lowest). Active alerts and rules are automatically ordered by priority. |
-| `entity` | `string` | **Yes** | — | Primary Home Assistant entity ID to monitor (e.g., `sensor.temperature`, `person.john`, `binary_sensor.front_door`). |
-| `state` | `string \| number \| Array<string \| number>` | **Yes** | — | Single state/value or list of multiple trigger states (e.g., `"on"`, `["open", "opening"]`, `["armed_away", "armed_home"]`). |
-| `operator` | `'equals' \| 'not_equals' \| 'contains'` | No | `'equals'` | How to compare the entity's state against `state`: **Equal (`=`)**, **Not Equal (`≠`)**, or **Contains**. |
-| `for` | `{ hours?, minutes?, seconds? } \| string \| number` | No | `0` (immediate) | How long the entity must stay in the matching state before triggering (e.g., `{ minutes: 5 }`, `"00:05:00"`, or `30`). |
-| `conditions` | `AlertCondition[]` | No | — | Additional **AND** conditions (`entity`, `operator`, `state`, `for`) that must all be met simultaneously. |
-| `message` | `string` | **Yes** | — | Alert text displayed on the banner (supports `{{ state }}` and `{{ entity }}`). |
-| `template` | `'SECURE' \| 'INFO' \| 'WARNING' \| 'CRITICAL'` | No | `'INFO'` | Controls the color palette, default icon, and slow-flashing behavior. |
-| `icon` | `string` | No | Template default | Custom icon (e.g., `mdi:garage-open`). Defaults to `mdi:shield-check` (`SECURE`), `mdi:information-outline` (`INFO`), `mdi:alert` (`WARNING`), or `mdi:shield-alert` (`CRITICAL`). |
+| `priority` | `'P1' \| 'P2' \| 'P3' \| 'P4'` | No | `'P2'` | Priority level (`P1` highest to `P4` lowest). Can also be overridden dynamically by `script`. |
+| `entity` | `string` | **Yes** | — | Primary Home Assistant entity ID to monitor (e.g., `binary_sensor.garage_door`). |
+| `entities` | `string[]` | No | — | Additional watched entity IDs. Whenever any watched entity changes state while triggered, `script` is re-evaluated. |
+| `state` / `states` | `string \| number \| Array<string \| number>` | No* | — | Trigger state(s) (e.g., `"on"`, `["open", "opening"]`). *Optional if `script` is set (when omitted, `script` runs on every state change of the watched entities). |
+| `script` | `string` | No | — | Home Assistant script entity ID (e.g., `script.check_garage_alert`) called with `return_response: true`. |
+| `script_data` | `Record<string, any>` | No | — | Optional extra variables passed to `script` alongside `{ entity, state, entities, states }`. |
+| `message` | `string` | No* | — | Alert text displayed on the banner (supports `{{ state }}` and `{{ entity }}`). *Required if `script` is not set. |
+| `template` | `'SECURE' \| 'INFO' \| 'WARNING' \| 'CRITICAL'` | No | `'INFO'` | Controls the color palette, default icon, and slow-flashing animation. Can be overridden by `script`. |
+| `icon` | `string` | No | Template default | Custom icon (e.g., `mdi:garage-open`). Can be overridden by `script`. |
 | `icon_color` | `string` | No | Theme blend | Optional CSS color override for this alert's icon (e.g., `"#22d3ee"`). |
-| `on_active` | `ActionOrServiceInput` | No | — | One or more service calls executed when the rule transitions from inactive to active. |
-| `tap_action` | `ActionOrServiceInput` | No | `more-info` | Supports `{ action: 'dismiss' }` (removes from active alert list), `{ action: 'snooze_30m' }` (auto-delays for 30 mins), `more-info`, `toggle`, or custom service calls. |
+| `tap_action` | `ActionOrServiceInput` | No | `more-info` | Supports `{ action: 'dismiss' }`, `{ action: 'snooze_30m' }`, `more-info`, `toggle`, `none`, or custom service calls. |
 | `hold_action` | `ActionOrServiceInput` | No | `more-info` | Action or list of service calls triggered after a `500ms` press-and-hold. |
-
-### Template Variables in `service_data` / `data`
-Inside any service call's `service_data` (or `data`), string values support:
-- `{{ message }}` — Replaced with the alert rule's `message`.
-- `{{ entity }}` — Replaced with the alert rule's `entity`.
 
 ---
 
@@ -128,6 +174,7 @@ The card automatically adapts to your active Home Assistant theme using these CS
 | CSS Variable | Purpose |
 | :--- | :--- |
 | `--ha-card-background` / `--card-background-color` | Base surface mixed with the alert accent color for origami facets. |
+| `--success-color` | Accent & bottom ribbon color for `SECURE` banners. |
 | `--info-color` | Accent & bottom ribbon color for `INFO` alerts. |
 | `--warning-color` | Accent, bottom ribbon & slow-flash color for `WARNING` alerts. |
 | `--error-color` | Accent, bottom ribbon & slow-flash color for `CRITICAL` alerts. |
@@ -139,14 +186,14 @@ The card automatically adapts to your active Home Assistant theme using these CS
 ## 🧪 Local Development & Testing
 
 ### 1. Fast Browser Harness (Vite Hot Reload)
-Includes interactive state toggles, a live theme switcher, service call logs, and the embedded Visual Editor:
+Includes interactive state toggles, a simulated `script.check_garage_alert` decision runner, a live theme switcher, and the embedded Visual Editor:
 ```bash
 npm install
 npm run dev
 ```
 
 ### 2. Throwaway Home Assistant Container (Docker)
-Builds the production bundle and launches a pre-configured `home-assistant:stable` Docker container at `http://localhost:8123` with test entities, themes, scenes, and a sample TTS script pre-loaded:
+Builds the production bundle and launches a pre-configured `home-assistant:stable` Docker container at `http://localhost:8123` with test entities, themes, and `script.check_garage_alert` pre-loaded:
 ```bash
 npm run test:ha
 ```
@@ -156,4 +203,3 @@ Outputs the standalone ES module to `dist/guardian-alerts-card.js`:
 ```bash
 npm run build
 ```
-

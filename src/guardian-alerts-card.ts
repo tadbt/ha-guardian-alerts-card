@@ -4,22 +4,20 @@ import { HomeAssistant } from 'custom-card-helpers';
 import { ActionConfig, ActionOrServiceInput, baseCardStyles, getTemplate } from './templates';
 import { executeAction } from './utils/action-handler';
 import {
-  AlertCondition,
   AlertPriority,
   AlertRule,
-  DurationConfig,
+  AlertSeverity,
   GuardianAlertsCardConfig,
-  StateOperator,
+  ScriptDecisionResponse,
 } from './types';
 import './editor';
 
 export type {
-  AlertCondition,
   AlertPriority,
   AlertRule,
-  DurationConfig,
+  AlertSeverity,
   GuardianAlertsCardConfig,
-  StateOperator,
+  ScriptDecisionResponse,
 };
 
 const PRIORITY_RANK: Record<string, number> = {
@@ -46,7 +44,7 @@ if (!window.customCards.some((c) => c.type === 'guardian-alerts-card')) {
     type: 'guardian-alerts-card',
     name: 'Guardian Alerts Card',
     description:
-      'Origami-styled security & status alert banners with slow flashing, AND conditions, priority sorting, and multi-service actions.',
+      'Origami-styled security & status alert banners powered by Home Assistant scripts and entity triggers.',
     preview: true,
   });
 }
@@ -58,13 +56,11 @@ export class GuardianAlertsCard extends LitElement {
 
   private holdTimeout?: number;
   private isHolding = false;
-  private activeRuleKeys = new Set<string>();
-  private matchedSinceMap = new Map<string, number>();
-  private durationTimers = new Map<string, number>();
+  private lastEvaluatedSnapshot = new Map<string, string>();
+  private scriptResults = new Map<string, ScriptDecisionResponse>();
   private dismissedRuleKeys = new Set<string>();
   private snoozedUntilMap = new Map<string, number>();
   private snoozeTimers = new Map<string, number>();
-  private hasInitializedStates = false;
 
   public disconnectedCallback(): void {
     super.disconnectedCallback();
@@ -72,11 +68,6 @@ export class GuardianAlertsCard extends LitElement {
   }
 
   private clearAllTimers(): void {
-    for (const timerId of this.durationTimers.values()) {
-      window.clearTimeout(timerId);
-    }
-    this.durationTimers.clear();
-
     for (const timerId of this.snoozeTimers.values()) {
       window.clearTimeout(timerId);
     }
@@ -109,7 +100,7 @@ export class GuardianAlertsCard extends LitElement {
         {
           entity: '',
           state: [],
-          operator: 'equals',
+          script: '',
           priority: 'P1',
           template: 'WARNING',
           message: 'Guardian Alert Triggered',
@@ -126,22 +117,48 @@ export class GuardianAlertsCard extends LitElement {
       ...config,
       alerts: Array.isArray(config.alerts) ? config.alerts : [],
     };
-    this.activeRuleKeys.clear();
-    this.matchedSinceMap.clear();
+    this.lastEvaluatedSnapshot.clear();
+    this.scriptResults.clear();
     this.dismissedRuleKeys.clear();
     this.snoozedUntilMap.clear();
-    this.hasInitializedStates = false;
   }
 
-  private getTargetStates(cond: AlertCondition): string[] {
-    const rawList: Array<string | number | boolean> = [];
-    if (Array.isArray(cond.states)) {
-      rawList.push(...cond.states);
+  private getWatchedEntities(rule: AlertRule): string[] {
+    const raw: string[] = [];
+    if (typeof rule.entity === 'string' && rule.entity.trim() !== '') {
+      raw.push(rule.entity.trim());
     }
-    if (Array.isArray(cond.state)) {
-      rawList.push(...cond.state);
-    } else if (cond.state !== undefined && cond.state !== null && String(cond.state).trim() !== '') {
-      rawList.push(cond.state);
+    if (Array.isArray(rule.entities)) {
+      for (const item of rule.entities) {
+        if (typeof item === 'string' && item.trim() !== '') {
+          raw.push(item.trim());
+        }
+      }
+    }
+    return Array.from(new Set(raw));
+  }
+
+  private getPrimaryEntity(rule: AlertRule): string {
+    if (typeof rule.entity === 'string' && rule.entity.trim() !== '') {
+      return rule.entity.trim();
+    }
+    const watched = this.getWatchedEntities(rule);
+    return watched[0] || '';
+  }
+
+  private getTargetStates(rule: AlertRule): string[] {
+    const rawList: Array<string | number | boolean> = [];
+    if (Array.isArray(rule.states)) {
+      rawList.push(...rule.states);
+    }
+    if (Array.isArray(rule.state)) {
+      rawList.push(...rule.state);
+    } else if (
+      rule.state !== undefined &&
+      rule.state !== null &&
+      String(rule.state).trim() !== ''
+    ) {
+      rawList.push(rule.state);
     }
     return Array.from(
       new Set(
@@ -152,195 +169,259 @@ export class GuardianAlertsCard extends LitElement {
     );
   }
 
-  private parseDurationMs(raw?: DurationConfig | number | string): number {
-    if (raw === undefined || raw === null || raw === '') return 0;
-    if (typeof raw === 'number') {
-      return Number.isFinite(raw) ? Math.max(0, raw * 1000) : 0;
-    }
-    if (typeof raw === 'string') {
-      const trimmed = raw.trim();
-      if (!trimmed) return 0;
-      if (/^\d+(\.\d+)?$/.test(trimmed)) {
-        return Math.max(0, Number(trimmed) * 1000);
-      }
-      const hmsMatch = trimmed.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
-      if (hmsMatch) {
-        const hasThree = hmsMatch[3] !== undefined;
-        const hours = hasThree ? Number(hmsMatch[1]) : 0;
-        const minutes = hasThree ? Number(hmsMatch[2]) : Number(hmsMatch[1]);
-        const seconds = hasThree ? Number(hmsMatch[3]) : Number(hmsMatch[2]);
-        return Math.max(0, ((hours * 60 + minutes) * 60 + seconds) * 1000);
-      }
-      const unitMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*(ms|s|sec|m|min|h|hr|d)$/i);
-      if (unitMatch) {
-        const val = Number(unitMatch[1]);
-        const unit = unitMatch[2].toLowerCase();
-        if (unit === 'ms') return val;
-        if (unit === 's' || unit === 'sec') return val * 1000;
-        if (unit === 'm' || unit === 'min') return val * 60_000;
-        if (unit === 'h' || unit === 'hr') return val * 3_600_000;
-        if (unit === 'd') return val * 86_400_000;
-      }
-      return 0;
-    }
-    if (typeof raw === 'object') {
-      const days = Number(raw.days || 0);
-      const hours = Number(raw.hours || 0);
-      const minutes = Number(raw.minutes || 0);
-      const seconds = Number(raw.seconds || 0);
-      const ms = Number(raw.milliseconds || 0);
-      return Math.max(0, (((days * 24 + hours) * 60 + minutes) * 60 + seconds) * 1000 + ms);
-    }
-    return 0;
-  }
-
-  private getConditionSignature(cond: AlertCondition): string {
-    const statesKey = this.getTargetStates(cond).map((s) => s.toLowerCase()).join('|');
-    const op = cond.operator || 'equals';
-    const dur = this.parseDurationMs(cond.for ?? cond.duration);
-    return `${cond.entity || ''}:${op}:${statesKey}:${dur}`;
-  }
-
   private getRuleKey(rule: AlertRule, index: number): string {
-    const primarySig = this.getConditionSignature(rule);
-    const andSigs = (rule.conditions || [])
-      .map((c) => this.getConditionSignature(c))
-      .join('&&');
-    return `${index}::${primarySig}::${andSigs}`;
+    const watchedKey = this.getWatchedEntities(rule).join(',');
+    const statesKey = this.getTargetStates(rule)
+      .map((s) => s.toLowerCase())
+      .join('|');
+    const scriptKey = (rule.script || '').trim();
+    return `${index}::${watchedKey}::${statesKey}::${scriptKey}`;
   }
 
-  private matchesSingleExpected(
-    actualRaw: string,
-    expectedRaw: string,
-    operator: StateOperator
-  ): boolean {
-    if (operator === 'contains') {
-      return actualRaw.toLowerCase().includes(expectedRaw.toLowerCase());
-    }
+  private getWatchedStateSnapshot(rule: AlertRule): string {
+    const watched = this.getWatchedEntities(rule);
+    return watched
+      .map((id) => {
+        const st = this.hass?.states?.[id]?.state;
+        return `${id}=${st !== undefined && st !== null ? String(st).trim() : '__missing__'}`;
+      })
+      .join('||');
+  }
 
-    const opMatch = expectedRaw.match(/^(>=|<=|!=|==|>|<)\s*(.+)$/);
-    if (opMatch) {
-      const [, op, rhsRaw] = opMatch;
-      const actualNum = Number(actualRaw);
-      const rhsNum = Number(rhsRaw);
-      if (
-        actualRaw !== '' &&
-        rhsRaw.trim() !== '' &&
-        !Number.isNaN(actualNum) &&
-        !Number.isNaN(rhsNum)
-      ) {
-        if (op === '>') return actualNum > rhsNum;
-        if (op === '>=') return actualNum >= rhsNum;
-        if (op === '<') return actualNum < rhsNum;
-        if (op === '<=') return actualNum <= rhsNum;
-        if (op === '==') return actualNum === rhsNum;
-        if (op === '!=') return actualNum !== rhsNum;
-      }
-      if (op === '!=') return actualRaw.toLowerCase() !== rhsRaw.trim().toLowerCase();
-      if (op === '==') return actualRaw.toLowerCase() === rhsRaw.trim().toLowerCase();
-    }
-
+  private matchesExpectedState(actualRaw: string, expectedRaw: string): boolean {
     const actualNum = Number(actualRaw);
     const expectedNum = Number(expectedRaw);
     if (actualRaw !== '' && !Number.isNaN(actualNum) && !Number.isNaN(expectedNum)) {
       return actualNum === expectedNum;
     }
-
     return actualRaw.toLowerCase() === expectedRaw.toLowerCase();
   }
 
-  private doesConditionStateMatch(cond: AlertCondition): boolean {
-    if (!cond.entity) return false;
-    const targets = this.getTargetStates(cond);
-    if (targets.length === 0) return false;
-
-    const stateObj = this.hass?.states?.[cond.entity];
+  private doesEntityMatchTargets(entityId: string, targets: string[]): boolean {
+    const stateObj = this.hass?.states?.[entityId];
     if (!stateObj || stateObj.state === undefined || stateObj.state === null) return false;
     const actualRaw = String(stateObj.state).trim();
-    const operator: StateOperator = cond.operator || 'equals';
+    return targets.some((expected) => this.matchesExpectedState(actualRaw, expected));
+  }
 
-    if (operator === 'not_equals') {
-      return targets.every((expected) => !this.matchesSingleExpected(actualRaw, expected, 'equals'));
+  private doesTriggerMatch(rule: AlertRule): boolean {
+    const watched = this.getWatchedEntities(rule);
+    if (watched.length === 0) return false;
+
+    const targets = this.getTargetStates(rule);
+    const hasScript = Boolean(rule.script && rule.script.trim() !== '');
+
+    // If no target state is specified, a script-backed rule triggers on any state change of its watched entities
+    if (targets.length === 0) {
+      if (!hasScript) return false;
+      return watched.some((id) => this.hass?.states?.[id] !== undefined);
     }
 
-    if (operator === 'contains') {
-      return targets.some((expected) =>
-        this.matchesSingleExpected(actualRaw, expected, 'contains')
+    // If a primary entity is set, check its state against targets; otherwise check any watched entity
+    const primary = typeof rule.entity === 'string' && rule.entity.trim() !== '' ? rule.entity.trim() : '';
+    if (primary) {
+      return this.doesEntityMatchTargets(primary, targets);
+    }
+    return watched.some((id) => this.doesEntityMatchTargets(id, targets));
+  }
+
+  private normalizeScriptResponse(
+    rawResponse: any,
+    rule: AlertRule
+  ): ScriptDecisionResponse {
+    if (typeof rawResponse === 'string') {
+      const msg = rawResponse.trim();
+      return {
+        active: msg.length > 0,
+        message: msg,
+      };
+    }
+
+    if (rawResponse && typeof rawResponse === 'object') {
+      // Unwrap nested service response if keyed by script name or `result`
+      let payload = rawResponse;
+      if (
+        payload.message === undefined &&
+        payload.active === undefined &&
+        payload.result &&
+        typeof payload.result === 'object'
+      ) {
+        payload = payload.result;
+      }
+
+      const rawMsg =
+        typeof payload.message === 'string' ? payload.message.trim() : undefined;
+      const explicitActive =
+        typeof payload.active === 'boolean' ? payload.active : undefined;
+
+      let active = false;
+      let message = '';
+
+      if (explicitActive === false) {
+        active = false;
+      } else if (rawMsg !== undefined) {
+        active = rawMsg.length > 0;
+        message = rawMsg;
+      } else if (explicitActive === true) {
+        active = true;
+        message = rule.message || '';
+      }
+
+      return {
+        active,
+        message,
+        template: (payload.template || payload.severity) as AlertSeverity | undefined,
+        priority: payload.priority as AlertPriority | undefined,
+        icon: typeof payload.icon === 'string' ? payload.icon : undefined,
+        icon_color: typeof payload.icon_color === 'string' ? payload.icon_color : undefined,
+      };
+    }
+
+    return { active: false, message: '' };
+  }
+
+  private async runDecisionScript(
+    rule: AlertRule,
+    ruleKey: string,
+    snapshot: string
+  ): Promise<void> {
+    const rawScript = (rule.script || '').trim();
+    if (!rawScript || !this.hass) return;
+
+    const scriptService = rawScript.startsWith('script.')
+      ? rawScript.slice('script.'.length)
+      : rawScript;
+
+    const primaryEntity = this.getPrimaryEntity(rule);
+    const primaryState = primaryEntity
+      ? String(this.hass?.states?.[primaryEntity]?.state ?? '')
+      : '';
+    const watchedEntities = this.getWatchedEntities(rule);
+    const statesMap: Record<string, string> = {};
+    for (const id of watchedEntities) {
+      statesMap[id] = String(this.hass?.states?.[id]?.state ?? '');
+    }
+
+    const serviceData: Record<string, any> = {
+      ...(rule.script_data || {}),
+      entity: primaryEntity,
+      state: primaryState,
+      entities: watchedEntities,
+      states: statesMap,
+    };
+
+    try {
+      let rawResponse: any;
+      if (typeof (this.hass as any).callWS === 'function') {
+        const wsRes = await (this.hass as any).callWS({
+          type: 'call_service',
+          domain: 'script',
+          service: scriptService,
+          service_data: serviceData,
+          return_response: true,
+        });
+        rawResponse = wsRes?.response ?? wsRes;
+      } else if (typeof this.hass.callService === 'function') {
+        rawResponse = await this.hass.callService('script', scriptService, serviceData);
+      }
+
+      // Ignore stale responses if the entity state changed while the script was running
+      if (this.lastEvaluatedSnapshot.get(ruleKey) !== snapshot) {
+        return;
+      }
+
+      const decision = this.normalizeScriptResponse(rawResponse, rule);
+      this.scriptResults.set(ruleKey, decision);
+
+      if (!decision.active) {
+        this.dismissedRuleKeys.delete(ruleKey);
+        this.clearSnoozeForRule(ruleKey);
+      }
+
+      this.requestUpdate();
+    } catch (err) {
+      console.warn(
+        `[guardian-alerts-card] Failed to execute decision script "${rawScript}":`,
+        err
       );
-    }
-
-    return targets.some((expected) => this.matchesSingleExpected(actualRaw, expected, 'equals'));
-  }
-
-  private isSingleConditionActive(cond: AlertCondition, conditionKey: string): boolean {
-    const matched = this.doesConditionStateMatch(cond);
-
-    if (!matched) {
-      this.matchedSinceMap.delete(conditionKey);
-      const timerId = this.durationTimers.get(conditionKey);
-      if (timerId !== undefined) {
-        window.clearTimeout(timerId);
-        this.durationTimers.delete(conditionKey);
-      }
-      return false;
-    }
-
-    const requiredMs = this.parseDurationMs(cond.for ?? cond.duration);
-    if (requiredMs <= 0) {
-      return true;
-    }
-
-    let matchedSince = this.matchedSinceMap.get(conditionKey);
-    if (matchedSince === undefined) {
-      const stateObj = this.hass?.states?.[cond.entity];
-      const lastChangedMs = stateObj?.last_changed ? Date.parse(stateObj.last_changed) : NaN;
-      if (!this.hasInitializedStates && !Number.isNaN(lastChangedMs) && lastChangedMs <= Date.now()) {
-        matchedSince = lastChangedMs;
-      } else if (!Number.isNaN(lastChangedMs) && Math.abs(Date.now() - lastChangedMs) < 2000) {
-        matchedSince = lastChangedMs;
-      } else {
-        matchedSince = Date.now();
-      }
-      this.matchedSinceMap.set(conditionKey, matchedSince);
-    }
-
-    const elapsedMs = Date.now() - matchedSince;
-    if (elapsedMs >= requiredMs) {
-      const timerId = this.durationTimers.get(conditionKey);
-      if (timerId !== undefined) {
-        window.clearTimeout(timerId);
-        this.durationTimers.delete(conditionKey);
-      }
-      return true;
-    }
-
-    if (!this.durationTimers.has(conditionKey)) {
-      const remainingMs = Math.max(20, requiredMs - elapsedMs + 25);
-      const timerId = window.setTimeout(() => {
-        this.durationTimers.delete(conditionKey);
-        this.evaluateAndTriggerRules();
+      if (this.lastEvaluatedSnapshot.get(ruleKey) === snapshot) {
+        this.scriptResults.set(ruleKey, { active: false, message: '' });
         this.requestUpdate();
-      }, remainingMs);
-      this.durationTimers.set(conditionKey, timerId);
+      }
     }
-
-    return false;
   }
 
-  private isRuleActive(rule: AlertRule, index: number): boolean {
-    const ruleKey = this.getRuleKey(rule, index);
-    const primaryActive = this.isSingleConditionActive(rule, `${ruleKey}::primary`);
+  private evaluateRules(): void {
+    if (!this.hass || !this.config) return;
 
-    const extraConditions = (rule.conditions || []).filter(
-      (c) => Boolean(c?.entity && this.getTargetStates(c).length > 0)
-    );
+    (this.config.alerts || []).forEach((rule, index) => {
+      const key = this.getRuleKey(rule, index);
+      const triggerMatched = this.doesTriggerMatch(rule);
 
-    // Evaluate all AND conditions so timers are tracked properly for each
-    const extrasActive = extraConditions.map((cond, cIdx) =>
-      this.isSingleConditionActive(cond, `${ruleKey}::and_${cIdx}`)
-    );
+      if (!triggerMatched) {
+        this.lastEvaluatedSnapshot.delete(key);
+        this.scriptResults.delete(key);
+        this.dismissedRuleKeys.delete(key);
+        this.clearSnoozeForRule(key);
+        return;
+      }
 
-    return primaryActive && extrasActive.every(Boolean);
+      const hasScript = Boolean(rule.script && rule.script.trim() !== '');
+      if (hasScript) {
+        const snapshot = this.getWatchedStateSnapshot(rule);
+        if (this.lastEvaluatedSnapshot.get(key) !== snapshot) {
+          this.lastEvaluatedSnapshot.set(key, snapshot);
+          void this.runDecisionScript(rule, key, snapshot);
+        }
+      }
+    });
+  }
+
+  private resolveActiveRule(
+    rule: AlertRule,
+    index: number
+  ): { active: boolean; effectiveRule: AlertRule } {
+    const key = this.getRuleKey(rule, index);
+    if (!this.doesTriggerMatch(rule)) {
+      return { active: false, effectiveRule: rule };
+    }
+
+    const hasScript = Boolean(rule.script && rule.script.trim() !== '');
+    if (!hasScript) {
+      const msg = this.formatMessage(rule, rule.message || '').trim();
+      return {
+        active: msg.length > 0,
+        effectiveRule: {
+          ...rule,
+          message: msg,
+        },
+      };
+    }
+
+    const decision = this.scriptResults.get(key);
+    if (!decision || !decision.active) {
+      return { active: false, effectiveRule: rule };
+    }
+
+    const resolvedMessage = this.formatMessage(
+      rule,
+      decision.message || rule.message || ''
+    ).trim();
+    if (!resolvedMessage) {
+      return { active: false, effectiveRule: rule };
+    }
+
+    return {
+      active: true,
+      effectiveRule: {
+        ...rule,
+        message: resolvedMessage,
+        template: decision.template || rule.template || rule.severity,
+        priority: decision.priority || rule.priority,
+        icon: decision.icon || rule.icon,
+        icon_color: decision.icon_color || rule.icon_color,
+      },
+    };
   }
 
   private isRuleSuppressed(ruleKey: string): boolean {
@@ -357,44 +438,14 @@ export class GuardianAlertsCard extends LitElement {
     return false;
   }
 
-  private evaluateAndTriggerRules(): void {
-    if (!this.hass || !this.config) return;
-    const nextActiveKeys = new Set<string>();
-
-    (this.config.alerts || []).forEach((rule, index) => {
-      const key = this.getRuleKey(rule, index);
-      const active = this.isRuleActive(rule, index);
-
-      if (active) {
-        nextActiveKeys.add(key);
-        // Fire on_active when transitioning from inactive -> active (after initial state snapshot)
-        if (this.hasInitializedStates && !this.activeRuleKeys.has(key) && rule.on_active) {
-          executeAction({
-            hass: this.hass,
-            config: rule.on_active,
-            defaultEntity: rule.entity,
-            defaultMessage: this.formatMessage(rule),
-          });
-        }
-      } else {
-        // Reset dismiss & snooze state when the underlying alert condition clears
-        this.dismissedRuleKeys.delete(key);
-        this.clearSnoozeForRule(key);
-      }
-    });
-
-    this.activeRuleKeys = nextActiveKeys;
-    this.hasInitializedStates = true;
-  }
-
-  private formatMessage(rule: AlertRule): string {
-    const rawMsg = rule.message || '';
-    if (!rule.entity) return rawMsg;
-    const stateObj = this.hass?.states?.[rule.entity];
+  private formatMessage(rule: AlertRule, rawMsg = rule.message || ''): string {
+    const primaryEntity = this.getPrimaryEntity(rule);
+    if (!primaryEntity) return rawMsg;
+    const stateObj = this.hass?.states?.[primaryEntity];
     const currentVal = stateObj?.state ?? '';
     return rawMsg
       .replace(/\{\{\s*state\s*\}\}/g, String(currentVal))
-      .replace(/\{\{\s*entity\s*\}\}/g, rule.entity);
+      .replace(/\{\{\s*entity\s*\}\}/g, primaryEntity);
   }
 
   protected updated(changedProps: PropertyValues): void {
@@ -402,7 +453,7 @@ export class GuardianAlertsCard extends LitElement {
     if (!this.hass || !this.config) return;
 
     if (changedProps.has('hass') || changedProps.has('config')) {
-      this.evaluateAndTriggerRules();
+      this.evaluateRules();
     }
   }
 
@@ -415,7 +466,8 @@ export class GuardianAlertsCard extends LitElement {
 
     if (!Array.isArray(resolvedConfig) && index !== null) {
       const act = (resolvedConfig as ActionConfig).action;
-      const ruleKey = this.getRuleKey(rule, index);
+      const originalRule = this.config.alerts[index] || rule;
+      const ruleKey = this.getRuleKey(originalRule, index);
 
       if (act === 'dismiss') {
         this.dismissedRuleKeys.add(ruleKey);
@@ -443,8 +495,8 @@ export class GuardianAlertsCard extends LitElement {
     executeAction({
       hass: this.hass,
       config: resolvedConfig,
-      defaultEntity: rule.entity,
-      defaultMessage: this.formatMessage(rule),
+      defaultEntity: this.getPrimaryEntity(rule),
+      defaultMessage: rule.message || '',
     });
   }
 
@@ -473,8 +525,12 @@ export class GuardianAlertsCard extends LitElement {
 
     // Collect active and non-dismissed/non-snoozed rules, then sort by Priority (P1 -> P2 -> P3 -> P4)
     const activeEntries = (this.config.alerts || [])
-      .map((rule, index) => ({ rule, index, key: this.getRuleKey(rule, index) }))
-      .filter(({ rule, index, key }) => this.isRuleActive(rule, index) && !this.isRuleSuppressed(key))
+      .map((rule, index) => {
+        const key = this.getRuleKey(rule, index);
+        const { active, effectiveRule } = this.resolveActiveRule(rule, index);
+        return { rule: effectiveRule, index, key, active };
+      })
+      .filter(({ active, key }) => active && !this.isRuleSuppressed(key))
       .sort((a, b) => {
         const rankA = PRIORITY_RANK[(a.rule.priority || 'P2').toUpperCase()] ?? 2;
         const rankB = PRIORITY_RANK[(b.rule.priority || 'P2').toUpperCase()] ?? 2;
@@ -488,11 +544,15 @@ export class GuardianAlertsCard extends LitElement {
       if (this.config.show_default_alert === false) return nothing;
 
       const defaultAlert = this.config.default_alert;
+      const fallbackEntity =
+        defaultAlert?.entity ||
+        (this.config.alerts?.[0] ? this.getPrimaryEntity(this.config.alerts[0]) : '');
+
       entriesToRender = [
         {
           index: null,
           rule: {
-            entity: defaultAlert?.entity || this.config.alerts?.[0]?.entity || '',
+            entity: fallbackEntity,
             state: '',
             template: defaultAlert?.template || 'SECURE',
             message: defaultAlert?.message || 'All Secured',
@@ -531,7 +591,7 @@ export class GuardianAlertsCard extends LitElement {
                 </div>
                 <div class="content">
                   <span class="badge">${badgeText}</span>
-                  <span class="message">${this.formatMessage(rule)}</span>
+                  <span class="message">${rule.message || ''}</span>
                 </div>
                 <span class="bottom-ribbon" aria-hidden="true"></span>
               </div>
