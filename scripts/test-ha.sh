@@ -77,33 +77,6 @@ scene:
       input_boolean.alert_scene_indicator: "on"
 
 script:
-  check_garage_alert:
-    alias: "Check Garage Alert Decision Script"
-    fields:
-      entity:
-        description: "Primary triggered entity"
-      state:
-        description: "Current state of primary entity"
-    sequence:
-      - if:
-          - condition: state
-            entity_id: input_boolean.perimeter_intrusion
-            state: "on"
-        then:
-          - variables:
-              decision:
-                message: "Garage door is OPEN while Perimeter Intrusion is active!"
-                template: "CRITICAL"
-                priority: "P1"
-          - stop: "Return critical garage alert"
-            response_variable: decision
-      - variables:
-          decision:
-            message: "Garage door opened (Tap to toggle)"
-            template: "WARNING"
-            priority: "P2"
-      - stop: "Return warning garage alert"
-        response_variable: decision
   tts_announce:
     alias: "TTS Broadcast Script (Test)"
     fields:
@@ -144,12 +117,17 @@ views:
       - type: custom:guardian-alerts-card
         alerts:
           - entity: binary_sensor.garage_entry_door
-            entities:
-              - input_boolean.perimeter_intrusion
             state: "on"
-            script: script.check_garage_alert
             template: WARNING
+            message: "Garage door opened (Tap to toggle)"
             icon: mdi:garage-open
+            on_active:
+              - service: scene.turn_on
+                target:
+                  entity_id: scene.security_alert_lights
+              - service: script.tts_announce
+                service_data:
+                  message: "{{ message }}"
             tap_action:
               - service: input_boolean.toggle
                 service_data:
@@ -158,6 +136,13 @@ views:
             state: "on"
             template: CRITICAL
             message: "Perimeter Intrusion Detected! (Tap to clear)"
+            on_active:
+              - service: scene.turn_on
+                target:
+                  entity_id: scene.security_alert_lights
+              - service: script.tts_announce
+                service_data:
+                  message: "CRITICAL: {{ message }}"
             tap_action:
               - service: input_boolean.turn_off
                 service_data:

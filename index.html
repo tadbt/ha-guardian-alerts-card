@@ -95,14 +95,13 @@
 
 <body>
 
-    <h2>Guardian Alerts Card — Script-Driven &amp; Visual Editor Harness</h2>
+    <h2>Guardian Alerts Card — Origami &amp; Visual Editor Harness</h2>
 
-    <!-- Interactive buttons to simulate state changes & script decisions in real time -->
+    <!-- Interactive buttons to simulate state changes & themes in real time -->
     <div class="controls">
-        <button id="toggle-door">Toggle Garage Door (on/off)</button>
-        <button id="toggle-person">Toggle Person (home / not_home)</button>
+        <button id="toggle-door">Toggle Garage Door (WARNING)</button>
         <button id="toggle-alarm">Toggle Main Alarm (CRITICAL)</button>
-        <button id="toggle-info">Toggle Porch Package (INFO)</button>
+        <button id="toggle-info">Toggle Disarmed Banner (INFO)</button>
         <button id="clear-all">Clear All Alerts (All Secured)</button>
         <button id="cycle-theme">Switch Theme (DefaultDark)</button>
     </div>
@@ -117,7 +116,7 @@
     </details>
 
     <div class="service-log" id="service-log">
-        <div><strong>Script &amp; Service Log</strong> (toggle Garage or Person to see <code>script.check_garage_alert</code> decide the message &amp; severity):</div>
+        <div><strong>Service &amp; Event Log</strong> (toggle an alert ON to see <code>on_active</code> fire multiple services):</div>
     </div>
 
     <script type="module">
@@ -146,7 +145,7 @@
             'garage': 'garage_home',
         };
 
-        // 1. Polyfill minimal <ha-icon> so icons render in plain browser
+        // 1. Polyfill minimal <ha-icon> so icons render in plain browser (supports both .icon prop and icon attr)
         if (!customElements.get('ha-icon')) {
             customElements.define('ha-icon', class extends HTMLElement {
                 static get observedAttributes() { return ['icon']; }
@@ -161,38 +160,12 @@
             });
         }
 
-        // 2. Mock Home Assistant state machine + script runner (`callWS` with `return_response: true`)
+        // 2. Mock Home Assistant state machine
         const mockHass = {
             states: {
                 'binary_sensor.garage_entry_door': { state: 'on', entity_id: 'binary_sensor.garage_entry_door' },
-                'person.jack': { state: 'not_home', entity_id: 'person.jack' },
                 'alarm_control_panel.main_alarm': { state: 'triggered', entity_id: 'alarm_control_panel.main_alarm' },
                 'binary_sensor.front_porch_motion': { state: 'on', entity_id: 'binary_sensor.front_porch_motion' },
-            },
-            callWS: async (msg) => {
-                if (msg.type === 'call_service' && msg.domain === 'script' && msg.service === 'check_garage_alert') {
-                    const personState = mockHass.states['person.jack']?.state;
-                    const doorState = mockHass.states['binary_sensor.garage_entry_door']?.state;
-                    let response;
-                    if (doorState !== 'on') {
-                        response = { message: '' };
-                    } else if (personState === 'not_home') {
-                        response = {
-                            message: 'Garage door is OPEN while nobody is home!',
-                            template: 'CRITICAL',
-                            priority: 'P1',
-                        };
-                    } else {
-                        response = {
-                            message: 'Garage door is open (Someone is home)',
-                            template: 'WARNING',
-                            priority: 'P2',
-                        };
-                    }
-                    appendLog(`script.check_garage_alert(${JSON.stringify(msg.service_data)}) -> ${JSON.stringify(response)}`);
-                    return { response };
-                }
-                return { response: {} };
             },
             callService: (domain, service, serviceData, target) => {
                 console.log(`[HASS SERVICE CALL] -> ${domain}.${service}`, { serviceData, target });
@@ -200,38 +173,67 @@
             }
         };
 
-        // 3. Card Configuration showcasing Option A (Script + Static fallback) & Option B (Multi-entity watching)
+        // 3. Card Configuration (icons omitted on INFO and CRITICAL to showcase default icons!)
         let currentConfig = {
             type: 'custom:guardian-alerts-card',
             alerts: [
                 {
-                    entity: 'binary_sensor.garage_entry_door',
-                    entities: ['person.jack'],
+                    entity: 'binary_sensor.front_porch_motion',
                     state: 'on',
-                    script: 'script.check_garage_alert',
-                    priority: 'P2',
+                    template: 'INFO',
+                    message: 'Front porch delivery box unlocked (Default INFO icon)',
+                },
+                {
+                    entity: 'binary_sensor.garage_entry_door',
+                    state: 'on',
                     template: 'WARNING',
-                    icon: 'mdi:garage-open',
-                    tap_action: { action: 'dismiss' }
+                    message: 'Garage door opened (Default WARNING icon)',
+                    on_active: [
+                        {
+                            service: 'scene.turn_on',
+                            target: { entity_id: 'scene.warning_lights' }
+                        },
+                        {
+                            service: 'script.tts_announce',
+                            service_data: {
+                                message: '{{ message }}',
+                                media_player: 'media_player.kitchen_speaker'
+                            }
+                        }
+                    ],
+                    tap_action: [
+                        {
+                            service: 'light.toggle',
+                            service_data: { entity_id: 'light.garage' }
+                        },
+                        {
+                            service: 'script.tts_announce',
+                            service_data: { message: 'Toggling garage light for: {{ message }}' }
+                        }
+                    ]
                 },
                 {
                     entity: 'alarm_control_panel.main_alarm',
                     state: 'triggered',
-                    priority: 'P1',
                     template: 'CRITICAL',
-                    message: 'Perimeter Intrusion Detected! ({{ state }})',
+                    message: 'Perimeter Intrusion Detected! (Default CRITICAL icon)',
+                    on_active: [
+                        {
+                            service: 'scene.turn_on',
+                            target: { entity_id: 'scene.emergency_red_lights' }
+                        },
+                        {
+                            service: 'script.tts_announce',
+                            service_data: {
+                                message: 'Critical alert: {{ message }}',
+                                media_player: 'media_player.whole_house'
+                            }
+                        }
+                    ],
                     tap_action: {
                         action: 'call-service',
                         service: 'alarm_control_panel.alarm_disarm'
                     }
-                },
-                {
-                    entity: 'binary_sensor.front_porch_motion',
-                    state: 'on',
-                    priority: 'P3',
-                    template: 'INFO',
-                    message: 'Front porch delivery box unlocked',
-                    tap_action: { action: 'dismiss' }
                 }
             ]
         };
@@ -259,17 +261,6 @@
                 state: next,
             };
             appendLog(`State binary_sensor.garage_entry_door -> ${next}`);
-            card.hass = { ...mockHass, states: { ...mockHass.states } };
-        });
-
-        document.getElementById('toggle-person').addEventListener('click', () => {
-            const current = mockHass.states['person.jack'].state;
-            const next = current === 'home' ? 'not_home' : 'home';
-            mockHass.states['person.jack'] = {
-                ...mockHass.states['person.jack'],
-                state: next,
-            };
-            appendLog(`State person.jack -> ${next}`);
             card.hass = { ...mockHass, states: { ...mockHass.states } };
         });
 
@@ -312,7 +303,7 @@
             card.hass = { ...mockHass, states: { ...mockHass.states } };
         });
 
-        // 5. Theme switcher
+        // 5. Theme switcher to verify theme variables impact origami & icon colors
         const themes = [
             {
                 name: 'DefaultDark',

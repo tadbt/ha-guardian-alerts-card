@@ -2,13 +2,16 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { HomeAssistant } from 'custom-card-helpers';
 import {
+  AlertCondition,
   AlertPriority,
   AlertRule,
   AlertSeverity,
   DefaultAlertConfig,
+  DurationConfig,
   GuardianAlertsCardConfig,
+  StateOperator,
 } from './types';
-import { ActionConfig, getTemplate } from './templates';
+import { ActionConfig, getTemplate, ServiceCallConfig } from './templates';
 
 interface HaFormSchemaItem {
   name: string;
@@ -37,6 +40,12 @@ const TEMPLATE_OPTIONS = [
   { value: 'INFO', label: 'INFO (Blue — Static)' },
   { value: 'WARNING', label: 'WARNING (Amber — Slow Flash)' },
   { value: 'CRITICAL', label: 'CRITICAL (Red — Slow Flash)' },
+];
+
+// 'contains' remains supported in YAML but is intentionally not offered in the visual editor
+const OPERATOR_OPTIONS = [
+  { value: 'equals', label: 'Equal (=) — Matches any selected state' },
+  { value: 'not_equals', label: 'Not Equal (≠) — Does not match selected state(s)' },
 ];
 
 const TAP_BEHAVIOR_OPTIONS = [
@@ -103,6 +112,9 @@ export class GuardianAlertsCardEditor extends LitElement {
 
   private defaultSchemaCache = new Map<boolean, HaFormSchemaItem[]>();
   private ruleSchemaCache = new Map<string, HaFormSchemaItem[]>();
+  private serviceSchemaCache = new Map<string, HaFormSchemaItem[]>();
+  private cachedServicesRef?: HomeAssistant['services'];
+  private cachedServiceOptions: Array<{ value: string; label: string }> = [];
 
   public connectedCallback(): void {
     super.connectedCallback();
@@ -195,19 +207,15 @@ export class GuardianAlertsCardEditor extends LitElement {
     return schema.helper || '';
   };
 
-  private normalizeRuleStates(rule: AlertRule): string[] {
+  private normalizeConditionStates(cond: AlertCondition): string[] {
     const raw: Array<string | number | boolean> = [];
-    if (Array.isArray(rule.states)) {
-      raw.push(...rule.states);
+    if (Array.isArray(cond.states)) {
+      raw.push(...cond.states);
     }
-    if (Array.isArray(rule.state)) {
-      raw.push(...rule.state);
-    } else if (
-      rule.state !== undefined &&
-      rule.state !== null &&
-      String(rule.state).trim() !== ''
-    ) {
-      raw.push(rule.state);
+    if (Array.isArray(cond.state)) {
+      raw.push(...cond.state);
+    } else if (cond.state !== undefined && cond.state !== null && String(cond.state).trim() !== '') {
+      raw.push(cond.state);
     }
     return Array.from(
       new Set(
@@ -215,6 +223,50 @@ export class GuardianAlertsCardEditor extends LitElement {
           .map((v) => String(v).trim())
           .filter((v) => v !== '')
       )
+    );
+  }
+
+  private normalizeDurationObject(raw?: DurationConfig | number | string): DurationConfig {
+    if (!raw) return { hours: 0, minutes: 0, seconds: 0 };
+    if (typeof raw === 'number') {
+      const totalSec = Math.max(0, Math.floor(raw));
+      const hours = Math.floor(totalSec / 3600);
+      const minutes = Math.floor((totalSec % 3600) / 60);
+      const seconds = totalSec % 60;
+      return { hours, minutes, seconds };
+    }
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      const hmsMatch = trimmed.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
+      if (hmsMatch) {
+        const hasThree = hmsMatch[3] !== undefined;
+        return {
+          hours: hasThree ? Number(hmsMatch[1]) : 0,
+          minutes: hasThree ? Number(hmsMatch[2]) : Number(hmsMatch[1]),
+          seconds: hasThree ? Number(hmsMatch[3]) : Number(hmsMatch[2]),
+        };
+      }
+      const numVal = Number(trimmed);
+      if (!Number.isNaN(numVal) && numVal > 0) {
+        return this.normalizeDurationObject(numVal);
+      }
+      return { hours: 0, minutes: 0, seconds: 0 };
+    }
+    return {
+      hours: Number(raw.hours || 0),
+      minutes: Number(raw.minutes || 0),
+      seconds: Number(raw.seconds || 0),
+    };
+  }
+
+  private isZeroDuration(dur?: DurationConfig): boolean {
+    if (!dur) return true;
+    return (
+      !Number(dur.days || 0) &&
+      !Number(dur.hours || 0) &&
+      !Number(dur.minutes || 0) &&
+      !Number(dur.seconds || 0) &&
+      !Number(dur.milliseconds || 0)
     );
   }
 
@@ -291,17 +343,7 @@ export class GuardianAlertsCardEditor extends LitElement {
       }
     }
 
-    for (const common of [
-      'on',
-      'off',
-      'triggered',
-      'disarmed',
-      'open',
-      'closed',
-      'home',
-      'not_home',
-      'unavailable',
-    ]) {
+    for (const common of ['on', 'off', 'triggered', 'disarmed', 'open', 'closed', 'home', 'not_home', 'unavailable']) {
       addOption(common);
     }
 
@@ -388,53 +430,6 @@ export class GuardianAlertsCardEditor extends LitElement {
         },
       },
       {
-        name: 'entity',
-        label: 'Primary Trigger Entity',
-        required: true,
-        selector: { entity: {} },
-      },
-      {
-        name: 'entities',
-        label: 'Additional Watched Entities (Optional)',
-        helper: 'Re-evaluates the decision script whenever any of these entities change state',
-        selector: {
-          entity: {
-            multiple: true,
-          },
-        },
-      },
-      {
-        name: 'states',
-        label: stateLabel,
-        helper:
-          'Select trigger state(s), or leave empty when using a Decision Script to evaluate on every state change',
-        selector: {
-          select: {
-            multiple: true,
-            custom_value: true,
-            mode: 'dropdown',
-            options: stateOptions,
-          },
-        },
-      },
-      {
-        name: 'script',
-        label: 'Decision Script (Optional — returns { message } to display alert)',
-        helper:
-          'Home Assistant script called when triggered. If it returns a non-empty message, the alert is shown.',
-        selector: {
-          entity: {
-            domain: 'script',
-          },
-        },
-      },
-      {
-        name: 'message',
-        label: 'Alert Message (Static or fallback if no script is set)',
-        helper: 'Supports {{ state }} and {{ entity }} placeholders',
-        selector: { text: {} },
-      },
-      {
         name: 'template',
         label: 'Alert Template / Severity Color',
         selector: {
@@ -445,6 +440,44 @@ export class GuardianAlertsCardEditor extends LitElement {
         },
       },
       {
+        name: 'entity',
+        label: 'Primary Entity (Search any sensor or entity)',
+        required: true,
+        selector: { entity: {} },
+      },
+      {
+        name: 'operator',
+        label: 'State Match Condition',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: OPERATOR_OPTIONS,
+          },
+        },
+      },
+      {
+        name: 'states',
+        label: stateLabel,
+        helper: 'Select one or more states, or type any custom value/text and press Enter',
+        required: true,
+        selector: {
+          select: {
+            multiple: true,
+            custom_value: true,
+            mode: 'dropdown',
+            options: stateOptions,
+          },
+        },
+      },
+      {
+        name: 'for',
+        label: 'Time in State Before Alerting (hh:mm:ss)',
+        helper: 'How long the entity must stay in the matching state before the alert shows (00:00:00 = immediately)',
+        selector: {
+          duration: {},
+        },
+      },
+      {
         name: 'icon',
         label: `Icon (default: ${defaultIcon})`,
         selector: {
@@ -452,6 +485,13 @@ export class GuardianAlertsCardEditor extends LitElement {
             placeholder: defaultIcon,
           },
         },
+      },
+      {
+        name: 'message',
+        label: 'Alert Message (Optional)',
+        helper:
+          'Supports {{ state }} and {{ entity }}. Leave empty to show "<entity name> is <state>".',
+        selector: { text: {} },
       },
       {
         name: 'tap_behavior',
@@ -478,6 +518,85 @@ export class GuardianAlertsCardEditor extends LitElement {
     }
 
     this.ruleSchemaCache.set(cacheKey, schema);
+    return schema;
+  }
+
+  private getServiceOptions(): Array<{ value: string; label: string }> {
+    const servicesObj = this.hass?.services;
+    if (servicesObj && servicesObj === this.cachedServicesRef && this.cachedServiceOptions.length > 0) {
+      return this.cachedServiceOptions;
+    }
+
+    const options: Array<{ value: string; label: string }> = [];
+    if (servicesObj) {
+      for (const [domain, domainServices] of Object.entries(servicesObj)) {
+        for (const [serviceName, meta] of Object.entries(domainServices || {})) {
+          const serviceId = `${domain}.${serviceName}`;
+          const friendly = (meta as any)?.name;
+          options.push({
+            value: serviceId,
+            label: friendly ? `${serviceId} — ${friendly}` : serviceId,
+          });
+        }
+      }
+      options.sort((a, b) => a.value.localeCompare(b.value));
+    } else {
+      options.push(
+        { value: 'scene.turn_on', label: 'scene.turn_on — Activate Scene' },
+        { value: 'script.turn_on', label: 'script.turn_on — Run Script' },
+        { value: 'script.tts_announce', label: 'script.tts_announce — TTS Announce Script' },
+        { value: 'light.turn_on', label: 'light.turn_on — Turn On Light' },
+        { value: 'light.turn_off', label: 'light.turn_off — Turn Off Light' },
+        { value: 'input_boolean.toggle', label: 'input_boolean.toggle — Toggle Input Boolean' },
+        { value: 'notify.notify', label: 'notify.notify — Send Notification' }
+      );
+    }
+
+    this.cachedServicesRef = servicesObj;
+    this.cachedServiceOptions = options;
+    this.serviceSchemaCache.clear();
+    return options;
+  }
+
+  private getServiceCallSchema(currentService?: string): HaFormSchemaItem[] {
+    const baseOptions = this.getServiceOptions();
+    const svcVal = (currentService || '').trim();
+    const cacheKey = `${baseOptions.length}::${svcVal}`;
+    const cached = this.serviceSchemaCache.get(cacheKey);
+    if (cached) return cached;
+
+    const options =
+      svcVal && !baseOptions.some((o) => o.value === svcVal)
+        ? [{ value: svcVal, label: svcVal }, ...baseOptions]
+        : baseOptions;
+
+    const schema: HaFormSchemaItem[] = [
+      {
+        name: 'service',
+        label: 'Service Call (search domain.service)',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            custom_value: true,
+            options,
+          },
+        },
+      },
+      {
+        name: 'target',
+        label: 'Target (Search Entities, Devices, or Areas)',
+        selector: {
+          target: {},
+        },
+      },
+      {
+        name: 'message',
+        label: 'Message Parameter (optional, supports {{ message }} & {{ entity }})',
+        selector: { text: {} },
+      },
+    ];
+
+    this.serviceSchemaCache.set(cacheKey, schema);
     return schema;
   }
 
@@ -527,14 +646,11 @@ export class GuardianAlertsCardEditor extends LitElement {
           ? [String(value.states).trim()]
           : [];
 
-      const extraEntities: string[] = Array.isArray(value.entities)
-        ? value.entities.map((e: any) => String(e).trim()).filter(Boolean)
-        : [];
-
       const updated: AlertRule = {
         ...rule,
         priority: newPriority,
         entity: value.entity ?? rule.entity ?? '',
+        operator: (value.operator || rule.operator || 'equals') as StateOperator,
         state: selectedStates.length === 1 ? selectedStates[0] : selectedStates,
         template: ((value.template || rule.template || 'INFO') as string).toUpperCase() as AlertSeverity,
         message: value.message ?? rule.message ?? '',
@@ -542,16 +658,15 @@ export class GuardianAlertsCardEditor extends LitElement {
 
       delete updated.states;
 
-      if (extraEntities.length > 0) {
-        updated.entities = extraEntities;
+      if (value.for && !this.isZeroDuration(value.for)) {
+        updated.for = {
+          hours: Number(value.for.hours || 0),
+          minutes: Number(value.for.minutes || 0),
+          seconds: Number(value.for.seconds || 0),
+        };
       } else {
-        delete updated.entities;
-      }
-
-      if (typeof value.script === 'string' && value.script.trim() !== '') {
-        updated.script = value.script.trim();
-      } else {
-        delete updated.script;
+        delete updated.for;
+        delete updated.duration;
       }
 
       if (value.icon && value.icon.trim() !== '') {
@@ -574,11 +689,7 @@ export class GuardianAlertsCardEditor extends LitElement {
       } else if (tapBehavior === 'custom') {
         if (value.tap_action && !Array.isArray(rule.tap_action)) {
           updated.tap_action = value.tap_action as ActionConfig;
-        } else if (
-          !rule.tap_action ||
-          (rule.tap_action as ActionConfig).action === 'dismiss' ||
-          (rule.tap_action as ActionConfig).action === 'snooze_30m'
-        ) {
+        } else if (!rule.tap_action || (rule.tap_action as ActionConfig).action === 'dismiss' || (rule.tap_action as ActionConfig).action === 'snooze_30m') {
           updated.tap_action = { action: 'call-service' };
         }
       }
@@ -608,9 +719,9 @@ export class GuardianAlertsCardEditor extends LitElement {
       priority: 'P2',
       entity: '',
       state: [],
-      script: '',
+      operator: 'equals',
       template: 'WARNING',
-      message: 'New Guardian Alert',
+      message: '',
       tap_action: { action: 'dismiss' },
     };
 
@@ -637,6 +748,117 @@ export class GuardianAlertsCardEditor extends LitElement {
     this.emitConfigChanged({
       ...this.config,
       type: this.config.type || 'custom:guardian-alerts-card',
+      alerts: nextAlerts,
+    });
+  }
+
+  private normalizeOnActiveList(rule: AlertRule): ServiceCallConfig[] {
+    if (!rule.on_active) return [];
+    if (Array.isArray(rule.on_active)) {
+      return rule.on_active.map((item) => ({
+        service: item.service || item.perform_action || '',
+        target: item.target,
+        service_data: item.service_data ?? item.data,
+      }));
+    }
+    const single = rule.on_active as ServiceCallConfig;
+    if (single.service || single.perform_action) {
+      return [
+        {
+          service: single.service || single.perform_action || '',
+          target: single.target,
+          service_data: single.service_data ?? single.data,
+        },
+      ];
+    }
+    return [];
+  }
+
+  private addOnActiveService(ruleIndex: number): void {
+    if (!this.config) return;
+    const rule = this.config.alerts[ruleIndex];
+    const current = this.normalizeOnActiveList(rule);
+    const nextAlerts = this.config.alerts.map((r, i) =>
+      i === ruleIndex
+        ? {
+            ...r,
+            on_active: [
+              ...current,
+              {
+                service: 'scene.turn_on',
+              },
+            ],
+          }
+        : r
+    );
+    this.emitConfigChanged({
+      ...this.config,
+      alerts: nextAlerts,
+    });
+  }
+
+  private onServiceCallFormChanged(
+    ruleIndex: number,
+    serviceIndex: number,
+    ev: CustomEvent
+  ): void {
+    ev.stopPropagation();
+    if (!this.config) return;
+    const value = ev.detail?.value;
+    if (!value) return;
+
+    const rule = this.config.alerts[ruleIndex];
+    const list = this.normalizeOnActiveList(rule).map((svc, idx) => {
+      if (idx !== serviceIndex) return svc;
+      const next: ServiceCallConfig = {
+        ...svc,
+        service: value.service ?? svc.service ?? '',
+      };
+
+      const targetObj = value.target;
+      if (
+        targetObj &&
+        typeof targetObj === 'object' &&
+        Object.keys(targetObj).some((k) => {
+          const v = targetObj[k];
+          return Array.isArray(v) ? v.length > 0 : Boolean(v);
+        })
+      ) {
+        next.target = targetObj;
+      } else {
+        delete next.target;
+      }
+
+      const currentData = { ...(next.service_data || {}) };
+      if (typeof value.message === 'string' && value.message.trim() !== '') {
+        currentData.message = value.message;
+        next.service_data = currentData;
+      } else {
+        delete currentData.message;
+        next.service_data = Object.keys(currentData).length > 0 ? currentData : undefined;
+      }
+
+      return next;
+    });
+
+    const nextAlerts = this.config.alerts.map((r, i) =>
+      i === ruleIndex ? { ...r, on_active: list.length > 0 ? list : undefined } : r
+    );
+    this.emitConfigChanged({
+      ...this.config,
+      alerts: nextAlerts,
+    });
+  }
+
+  private removeOnActiveService(ruleIndex: number, serviceIndex: number): void {
+    if (!this.config) return;
+    const rule = this.config.alerts[ruleIndex];
+    const list = this.normalizeOnActiveList(rule).filter((_, idx) => idx !== serviceIndex);
+    const nextAlerts = this.config.alerts.map((r, i) =>
+      i === ruleIndex ? { ...r, on_active: list.length > 0 ? list : undefined } : r
+    );
+    this.emitConfigChanged({
+      ...this.config,
       alerts: nextAlerts,
     });
   }
@@ -700,8 +922,9 @@ export class GuardianAlertsCardEditor extends LitElement {
           const isOpen = this.expandedRuleIndex === index;
           const priority = (rule.priority || 'P2').toUpperCase();
           const tpl = getTemplate(rule.template || rule.severity);
-          const selectedStates = this.normalizeRuleStates(rule);
-          const extraEntities = Array.isArray(rule.entities) ? rule.entities : [];
+          const services = this.normalizeOnActiveList(rule);
+          const andConditions = Array.isArray(rule.conditions) ? rule.conditions : [];
+          const selectedStates = this.normalizeConditionStates(rule);
           const tapBehavior = this.getTapBehaviorFromRule(rule);
 
           const entityStateObj = rule.entity ? this.hass?.states?.[rule.entity] : undefined;
@@ -714,9 +937,9 @@ export class GuardianAlertsCardEditor extends LitElement {
           const ruleFormData = {
             priority,
             entity: rule.entity || '',
-            entities: extraEntities,
+            operator: rule.operator || 'equals',
             states: selectedStates,
-            script: rule.script || '',
+            for: this.normalizeDurationObject(rule.for ?? rule.duration),
             template: (rule.template || rule.severity || 'INFO').toUpperCase(),
             icon: rule.icon || '',
             message: rule.message || '',
@@ -725,10 +948,6 @@ export class GuardianAlertsCardEditor extends LitElement {
               ? rule.tap_action || { action: 'call-service' }
               : { action: 'call-service' },
           };
-
-          const titleLabel =
-            rule.message ||
-            (rule.script ? `Script: ${rule.script}` : `Alert Rule #${index + 1}`);
 
           return html`
             <div class="rule-card ${isOpen ? 'expanded' : 'collapsed'}">
@@ -740,13 +959,12 @@ export class GuardianAlertsCardEditor extends LitElement {
                   <span class="priority-pill priority-${priority.toLowerCase()}">${priority}</span>
                   <div class="rule-summary">
                     <span class="rule-title">
-                      ${titleLabel} (${tpl.name})
+                      ${rule.message || `Alert Rule #${index + 1}`} (${tpl.name})
                     </span>
                     <span class="rule-subtitle">
                       ${rule.entity || 'No entity selected'}
-                      ${extraEntities.length > 0 ? ` +${extraEntities.length} watched` : ''}
                       ${selectedStates.length > 0 ? ` · [${selectedStates.join(', ')}]` : ''}
-                      ${rule.script ? ` · ⚙️ ${rule.script}` : ''}
+                      ${andConditions.length > 0 ? ` · +${andConditions.length} AND (YAML)` : ''}
                     </span>
                   </div>
                 </div>
@@ -786,6 +1004,62 @@ export class GuardianAlertsCardEditor extends LitElement {
                         .computeHelper=${this.computeHelper}
                         @value-changed=${(ev: CustomEvent) => this.onRuleFormChanged(index, ev)}
                       ></ha-form>
+
+                      ${andConditions.length > 0
+                        ? html`
+                            <div class="yaml-note">
+                              ➕ ${andConditions.length} additional AND condition(s) configured in YAML
+                              (edit via the code editor).
+                            </div>
+                          `
+                        : nothing}
+
+                      <!-- On-Active Service Calls Section -->
+                      <div class="services-section">
+                        <div class="services-header">
+                          <span>Actions When Alert Activates (${services.length})</span>
+                          <button
+                            type="button"
+                            class="btn-secondary"
+                            @click=${() => this.addOnActiveService(index)}
+                          >
+                            + Add Service Call
+                          </button>
+                        </div>
+
+                        ${services.map((svc, sIdx) => {
+                          const svcFormData = {
+                            service: svc.service || '',
+                            target: svc.target || {},
+                            message: svc.service_data?.message ?? '',
+                          };
+
+                          return html`
+                            <div class="service-card">
+                              <div class="service-card-header">
+                                <span>Service Call #${sIdx + 1}</span>
+                                <button
+                                  type="button"
+                                  class="btn-danger-sm"
+                                  title="Remove Service Call"
+                                  @click=${() => this.removeOnActiveService(index, sIdx)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              <ha-form
+                                .hass=${this.hass}
+                                .data=${svcFormData}
+                                .schema=${this.getServiceCallSchema(svc.service)}
+                                .computeLabel=${this.computeLabel}
+                                .computeHelper=${this.computeHelper}
+                                @value-changed=${(ev: CustomEvent) =>
+                                  this.onServiceCallFormChanged(index, sIdx, ev)}
+                              ></ha-form>
+                            </div>
+                          `;
+                        })}
+                      </div>
                     </div>
                   `
                 : nothing}
@@ -951,6 +1225,51 @@ export class GuardianAlertsCardEditor extends LitElement {
       gap: 14px;
     }
 
+    .yaml-note {
+      font-size: 0.8rem;
+      padding: 8px 10px;
+      border-radius: 8px;
+      color: var(--secondary-text-color, #9ca3af);
+      background: var(--card-background-color, rgba(255, 255, 255, 0.03));
+      border: 1px dashed var(--divider-color, rgba(255, 255, 255, 0.16));
+    }
+
+    .services-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--divider-color, rgba(255, 255, 255, 0.16));
+    }
+
+    .services-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--secondary-text-color, #9ca3af);
+    }
+
+    .service-card {
+      background: var(--card-background-color, rgba(15, 23, 42, 0.45));
+      border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.1));
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .service-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--secondary-text-color, #9ca3af);
+    }
+
     button {
       cursor: pointer;
       border-radius: 6px;
@@ -965,6 +1284,12 @@ export class GuardianAlertsCardEditor extends LitElement {
       color: #fff;
       padding: 10px 16px;
       align-self: flex-start;
+    }
+
+    .btn-secondary {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--primary-color, #38bdf8);
+      border: 1px solid rgba(56, 189, 248, 0.35);
     }
 
     .btn-danger-sm {

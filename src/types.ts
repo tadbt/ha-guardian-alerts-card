@@ -4,29 +4,40 @@ export type AlertSeverity = 'SECURE' | 'INFO' | 'WARNING' | 'CRITICAL';
 
 export type AlertPriority = 'P1' | 'P2' | 'P3' | 'P4';
 
-export interface ScriptDecisionResponse {
-    active?: boolean;
-    message?: string;
-    template?: AlertSeverity;
-    severity?: AlertSeverity;
-    priority?: AlertPriority;
-    icon?: string;
-    icon_color?: string;
+export type StateOperator = 'equals' | 'not_equals' | 'contains';
+
+export interface DurationConfig {
+    days?: number;
+    hours?: number;
+    minutes?: number;
+    seconds?: number;
+    milliseconds?: number;
+}
+
+export interface AlertCondition {
+    entity: string;
+    state?: string | number | boolean | Array<string | number | boolean>;
+    states?: Array<string | number | boolean>;
+    operator?: StateOperator;
+    for?: DurationConfig | number | string;
+    duration?: DurationConfig | number | string;
 }
 
 export interface AlertRule {
-    entity?: string; // Primary watched entity
-    entities?: string[]; // Additional watched entities (triggers script re-evaluation on change)
-    state?: string | number | boolean | Array<string | number | boolean>; // Optional trigger state(s)
+    entity: string;
+    state?: string | number | boolean | Array<string | number | boolean>; // Single or multiple trigger states
     states?: Array<string | number | boolean>; // Optional alias for multiple trigger states
-    script?: string; // HA script (e.g. 'script.check_garage') that returns { message, template?, priority?, icon? }
-    script_data?: Record<string, any>; // Optional extra variables passed to the decision script
+    operator?: StateOperator; // 'equals' (default) | 'not_equals' | 'contains'
+    for?: DurationConfig | number | string; // How long entity must stay in state to trigger
+    duration?: DurationConfig | number | string; // Alias for `for`
+    conditions?: AlertCondition[]; // Additional AND conditions that must all match
     priority?: AlertPriority; // 'P1' | 'P2' | 'P3' | 'P4' (orders active alerts)
     template?: AlertSeverity;
     severity?: AlertSeverity;
-    message?: string; // Static message (or fallback if script omits message)
+    message?: string; // Optional; defaults to "<entity name> is <state>" when empty
     icon?: string;
     icon_color?: string;
+    on_active?: ActionOrServiceInput;
     tap_action?: ActionOrServiceInput;
     hold_action?: ActionOrServiceInput;
 }
@@ -48,3 +59,4 @@ export interface GuardianAlertsCardConfig {
     default_alert?: DefaultAlertConfig;
     alerts: AlertRule[];
 }
+
