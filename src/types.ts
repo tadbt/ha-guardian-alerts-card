@@ -1,4 +1,4 @@
-import { ActionOrServiceInput } from './templates/types';
+import { ActionConfig } from './templates/types';
 
 export type AlertSeverity = 'SECURE' | 'INFO' | 'WARNING' | 'CRITICAL';
 
@@ -14,15 +14,6 @@ export interface DurationConfig {
     milliseconds?: number;
 }
 
-export interface AlertCondition {
-    entity: string;
-    state?: string | number | boolean | Array<string | number | boolean>;
-    states?: Array<string | number | boolean>;
-    operator?: StateOperator;
-    for?: DurationConfig | number | string;
-    duration?: DurationConfig | number | string;
-}
-
 export interface AlertRule {
     entity: string;
     state?: string | number | boolean | Array<string | number | boolean>; // Single or multiple trigger states
@@ -30,16 +21,13 @@ export interface AlertRule {
     operator?: StateOperator; // 'equals' (default) | 'not_equals' | 'contains'
     for?: DurationConfig | number | string; // How long entity must stay in state to trigger
     duration?: DurationConfig | number | string; // Alias for `for`
-    conditions?: AlertCondition[]; // Additional AND conditions that must all match
     priority?: AlertPriority; // 'P1' | 'P2' | 'P3' | 'P4' (orders active alerts)
     template?: AlertSeverity;
     severity?: AlertSeverity;
     message?: string; // Optional; defaults to "<entity name> is <state>" when empty
     icon?: string;
     icon_color?: string;
-    on_active?: ActionOrServiceInput;
-    tap_action?: ActionOrServiceInput;
-    hold_action?: ActionOrServiceInput;
+    tap_action?: ActionConfig;
 }
 
 export interface DefaultAlertConfig {
@@ -48,8 +36,6 @@ export interface DefaultAlertConfig {
     message?: string;
     icon?: string;
     icon_color?: string;
-    tap_action?: ActionOrServiceInput;
-    hold_action?: ActionOrServiceInput;
 }
 
 export interface GuardianAlertsCardConfig {
@@ -59,4 +45,3 @@ export interface GuardianAlertsCardConfig {
     default_alert?: DefaultAlertConfig;
     alerts: AlertRule[];
 }
-

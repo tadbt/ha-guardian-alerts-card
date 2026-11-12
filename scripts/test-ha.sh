@@ -116,38 +116,23 @@ views:
 
       - type: custom:guardian-alerts-card
         alerts:
-          - entity: binary_sensor.garage_entry_door
-            state: "on"
-            template: WARNING
-            message: "Garage door opened (Tap to toggle)"
-            icon: mdi:garage-open
-            on_active:
-              - service: scene.turn_on
-                target:
-                  entity_id: scene.security_alert_lights
-              - service: script.tts_announce
-                service_data:
-                  message: "{{ message }}"
-            tap_action:
-              - service: input_boolean.toggle
-                service_data:
-                  entity_id: input_boolean.garage_entry_door
-          - entity: input_boolean.perimeter_intrusion
+          - priority: P1
+            entity: input_boolean.perimeter_intrusion
             state: "on"
             template: CRITICAL
-            message: "Perimeter Intrusion Detected! (Tap to clear)"
-            on_active:
-              - service: scene.turn_on
-                target:
-                  entity_id: scene.security_alert_lights
-              - service: script.tts_announce
-                service_data:
-                  message: "CRITICAL: {{ message }}"
+            message: "Perimeter Intrusion Detected! (Tap to dismiss)"
             tap_action:
-              - service: input_boolean.turn_off
-                service_data:
-                  entity_id: input_boolean.perimeter_intrusion
-          - entity: alarm_control_panel.main_alarm
+              action: dismiss
+          - priority: P2
+            entity: binary_sensor.garage_entry_door
+            state: "on"
+            template: WARNING
+            message: "Garage door opened (Tap to snooze 30m)"
+            icon: mdi:garage-open
+            tap_action:
+              action: snooze_30m
+          - priority: P3
+            entity: alarm_control_panel.main_alarm
             state: "disarmed"
             template: INFO
             message: "Main Alarm is Disarmed (Static Origami INFO)"
@@ -171,7 +156,6 @@ OVERVIEW_STORAGE_JSON='{
               "entities": [
                 "input_boolean.garage_entry_door",
                 "input_boolean.perimeter_intrusion",
-                "input_boolean.alert_scene_indicator",
                 "binary_sensor.garage_entry_door",
                 "alarm_control_panel.main_alarm"
               ]
@@ -180,63 +164,24 @@ OVERVIEW_STORAGE_JSON='{
               "type": "custom:guardian-alerts-card",
               "alerts": [
                 {
-                  "entity": "binary_sensor.garage_entry_door",
-                  "state": "on",
-                  "template": "WARNING",
-                  "message": "Garage door opened (Tap to toggle)",
-                  "icon": "mdi:garage-open",
-                  "on_active": [
-                    {
-                      "service": "scene.turn_on",
-                      "target": {
-                        "entity_id": "scene.security_alert_lights"
-                      }
-                    },
-                    {
-                      "service": "script.tts_announce",
-                      "service_data": {
-                        "message": "{{ message }}"
-                      }
-                    }
-                  ],
-                  "tap_action": [
-                    {
-                      "service": "input_boolean.toggle",
-                      "service_data": {
-                        "entity_id": "input_boolean.garage_entry_door"
-                      }
-                    }
-                  ]
-                },
-                {
+                  "priority": "P1",
                   "entity": "input_boolean.perimeter_intrusion",
                   "state": "on",
                   "template": "CRITICAL",
-                  "message": "Perimeter Intrusion Detected! (Tap to clear)",
-                  "on_active": [
-                    {
-                      "service": "scene.turn_on",
-                      "target": {
-                        "entity_id": "scene.security_alert_lights"
-                      }
-                    },
-                    {
-                      "service": "script.tts_announce",
-                      "service_data": {
-                        "message": "CRITICAL: {{ message }}"
-                      }
-                    }
-                  ],
-                  "tap_action": [
-                    {
-                      "service": "input_boolean.turn_off",
-                      "service_data": {
-                        "entity_id": "input_boolean.perimeter_intrusion"
-                      }
-                    }
-                  ]
+                  "message": "Perimeter Intrusion Detected! (Tap to dismiss)",
+                  "tap_action": { "action": "dismiss" }
                 },
                 {
+                  "priority": "P2",
+                  "entity": "binary_sensor.garage_entry_door",
+                  "state": "on",
+                  "template": "WARNING",
+                  "message": "Garage door opened (Tap to snooze 30m)",
+                  "icon": "mdi:garage-open",
+                  "tap_action": { "action": "snooze_30m", "snooze_minutes": 30 }
+                },
+                {
+                  "priority": "P3",
                   "entity": "alarm_control_panel.main_alarm",
                   "state": "disarmed",
                   "template": "INFO",

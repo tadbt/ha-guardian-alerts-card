@@ -1,8 +1,8 @@
 {
   "name": "ha-guardian-alerts-card",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "type": "module",
-  "description": "Modern origami-styled Home Assistant Lovelace alert banner card powered by Home Assistant decision scripts, entity triggers, and theme-aware templates.",
+  "description": "Modern origami-styled Home Assistant Lovelace alert banner card with slow flashing, time-in-state delays, priority sorting, and dismiss/snooze.",
   "main": "dist/guardian-alerts-card.js",
   "scripts": {
     "dev": "vite",

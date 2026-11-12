@@ -1,10 +1,8 @@
 import { LitElement, PropertyValues, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { HomeAssistant } from 'custom-card-helpers';
-import { ActionConfig, ActionOrServiceInput, baseCardStyles, getTemplate } from './templates';
-import { executeAction } from './utils/action-handler';
+import { ActionConfig, baseCardStyles, getTemplate } from './templates';
 import {
-  AlertCondition,
   AlertPriority,
   AlertRule,
   DurationConfig,
@@ -14,7 +12,6 @@ import {
 import './editor';
 
 export type {
-  AlertCondition,
   AlertPriority,
   AlertRule,
   DurationConfig,
@@ -46,7 +43,7 @@ if (!window.customCards.some((c) => c.type === 'guardian-alerts-card')) {
     type: 'guardian-alerts-card',
     name: 'Guardian Alerts Card',
     description:
-      'Origami-styled security & status alert banners with slow flashing, AND conditions, priority sorting, and multi-service actions.',
+      'Origami-styled security & status alert banners with slow flashing, time-in-state delays, priority sorting, and dismiss/snooze.',
     preview: true,
   });
 }
@@ -56,9 +53,6 @@ export class GuardianAlertsCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
   @state() private config!: GuardianAlertsCardConfig;
 
-  private holdTimeout?: number;
-  private isHolding = false;
-  private activeRuleKeys = new Set<string>();
   private matchedSinceMap = new Map<string, number>();
   private durationTimers = new Map<string, number>();
   private dismissedRuleKeys = new Set<string>();
@@ -126,22 +120,21 @@ export class GuardianAlertsCard extends LitElement {
       ...config,
       alerts: Array.isArray(config.alerts) ? config.alerts : [],
     };
-    this.activeRuleKeys.clear();
     this.matchedSinceMap.clear();
     this.dismissedRuleKeys.clear();
     this.snoozedUntilMap.clear();
     this.hasInitializedStates = false;
   }
 
-  private getTargetStates(cond: AlertCondition): string[] {
+  private getTargetStates(rule: AlertRule): string[] {
     const rawList: Array<string | number | boolean> = [];
-    if (Array.isArray(cond.states)) {
-      rawList.push(...cond.states);
+    if (Array.isArray(rule.states)) {
+      rawList.push(...rule.states);
     }
-    if (Array.isArray(cond.state)) {
-      rawList.push(...cond.state);
-    } else if (cond.state !== undefined && cond.state !== null && String(cond.state).trim() !== '') {
-      rawList.push(cond.state);
+    if (Array.isArray(rule.state)) {
+      rawList.push(...rule.state);
+    } else if (rule.state !== undefined && rule.state !== null && String(rule.state).trim() !== '') {
+      rawList.push(rule.state);
     }
     return Array.from(
       new Set(
@@ -194,19 +187,11 @@ export class GuardianAlertsCard extends LitElement {
     return 0;
   }
 
-  private getConditionSignature(cond: AlertCondition): string {
-    const statesKey = this.getTargetStates(cond).map((s) => s.toLowerCase()).join('|');
-    const op = cond.operator || 'equals';
-    const dur = this.parseDurationMs(cond.for ?? cond.duration);
-    return `${cond.entity || ''}:${op}:${statesKey}:${dur}`;
-  }
-
   private getRuleKey(rule: AlertRule, index: number): string {
-    const primarySig = this.getConditionSignature(rule);
-    const andSigs = (rule.conditions || [])
-      .map((c) => this.getConditionSignature(c))
-      .join('&&');
-    return `${index}::${primarySig}::${andSigs}`;
+    const statesKey = this.getTargetStates(rule).map((s) => s.toLowerCase()).join('|');
+    const op = rule.operator || 'equals';
+    const dur = this.parseDurationMs(rule.for ?? rule.duration);
+    return `${index}::${rule.entity || ''}:${op}:${statesKey}:${dur}`;
   }
 
   private matchesSingleExpected(
@@ -249,15 +234,15 @@ export class GuardianAlertsCard extends LitElement {
     return actualRaw.toLowerCase() === expectedRaw.toLowerCase();
   }
 
-  private doesConditionStateMatch(cond: AlertCondition): boolean {
-    if (!cond.entity) return false;
-    const targets = this.getTargetStates(cond);
+  private doesRuleStateMatch(rule: AlertRule): boolean {
+    if (!rule.entity) return false;
+    const targets = this.getTargetStates(rule);
     if (targets.length === 0) return false;
 
-    const stateObj = this.hass?.states?.[cond.entity];
+    const stateObj = this.hass?.states?.[rule.entity];
     if (!stateObj || stateObj.state === undefined || stateObj.state === null) return false;
     const actualRaw = String(stateObj.state).trim();
-    const operator: StateOperator = cond.operator || 'equals';
+    const operator: StateOperator = rule.operator || 'equals';
 
     if (operator === 'not_equals') {
       return targets.every((expected) => !this.matchesSingleExpected(actualRaw, expected, 'equals'));
@@ -272,27 +257,28 @@ export class GuardianAlertsCard extends LitElement {
     return targets.some((expected) => this.matchesSingleExpected(actualRaw, expected, 'equals'));
   }
 
-  private isSingleConditionActive(cond: AlertCondition, conditionKey: string): boolean {
-    const matched = this.doesConditionStateMatch(cond);
+  private isRuleActive(rule: AlertRule, index: number): boolean {
+    const ruleKey = this.getRuleKey(rule, index);
+    const matched = this.doesRuleStateMatch(rule);
 
     if (!matched) {
-      this.matchedSinceMap.delete(conditionKey);
-      const timerId = this.durationTimers.get(conditionKey);
+      this.matchedSinceMap.delete(ruleKey);
+      const timerId = this.durationTimers.get(ruleKey);
       if (timerId !== undefined) {
         window.clearTimeout(timerId);
-        this.durationTimers.delete(conditionKey);
+        this.durationTimers.delete(ruleKey);
       }
       return false;
     }
 
-    const requiredMs = this.parseDurationMs(cond.for ?? cond.duration);
+    const requiredMs = this.parseDurationMs(rule.for ?? rule.duration);
     if (requiredMs <= 0) {
       return true;
     }
 
-    let matchedSince = this.matchedSinceMap.get(conditionKey);
+    let matchedSince = this.matchedSinceMap.get(ruleKey);
     if (matchedSince === undefined) {
-      const stateObj = this.hass?.states?.[cond.entity];
+      const stateObj = this.hass?.states?.[rule.entity];
       const lastChangedMs = stateObj?.last_changed ? Date.parse(stateObj.last_changed) : NaN;
       if (!this.hasInitializedStates && !Number.isNaN(lastChangedMs) && lastChangedMs <= Date.now()) {
         matchedSince = lastChangedMs;
@@ -301,46 +287,30 @@ export class GuardianAlertsCard extends LitElement {
       } else {
         matchedSince = Date.now();
       }
-      this.matchedSinceMap.set(conditionKey, matchedSince);
+      this.matchedSinceMap.set(ruleKey, matchedSince);
     }
 
     const elapsedMs = Date.now() - matchedSince;
     if (elapsedMs >= requiredMs) {
-      const timerId = this.durationTimers.get(conditionKey);
+      const timerId = this.durationTimers.get(ruleKey);
       if (timerId !== undefined) {
         window.clearTimeout(timerId);
-        this.durationTimers.delete(conditionKey);
+        this.durationTimers.delete(ruleKey);
       }
       return true;
     }
 
-    if (!this.durationTimers.has(conditionKey)) {
+    if (!this.durationTimers.has(ruleKey)) {
       const remainingMs = Math.max(20, requiredMs - elapsedMs + 25);
       const timerId = window.setTimeout(() => {
-        this.durationTimers.delete(conditionKey);
-        this.evaluateAndTriggerRules();
+        this.durationTimers.delete(ruleKey);
+        this.evaluateRules();
         this.requestUpdate();
       }, remainingMs);
-      this.durationTimers.set(conditionKey, timerId);
+      this.durationTimers.set(ruleKey, timerId);
     }
 
     return false;
-  }
-
-  private isRuleActive(rule: AlertRule, index: number): boolean {
-    const ruleKey = this.getRuleKey(rule, index);
-    const primaryActive = this.isSingleConditionActive(rule, `${ruleKey}::primary`);
-
-    const extraConditions = (rule.conditions || []).filter(
-      (c) => Boolean(c?.entity && this.getTargetStates(c).length > 0)
-    );
-
-    // Evaluate all AND conditions so timers are tracked properly for each
-    const extrasActive = extraConditions.map((cond, cIdx) =>
-      this.isSingleConditionActive(cond, `${ruleKey}::and_${cIdx}`)
-    );
-
-    return primaryActive && extrasActive.every(Boolean);
   }
 
   private isRuleSuppressed(ruleKey: string): boolean {
@@ -357,33 +327,20 @@ export class GuardianAlertsCard extends LitElement {
     return false;
   }
 
-  private evaluateAndTriggerRules(): void {
+  private evaluateRules(): void {
     if (!this.hass || !this.config) return;
-    const nextActiveKeys = new Set<string>();
 
     (this.config.alerts || []).forEach((rule, index) => {
       const key = this.getRuleKey(rule, index);
       const active = this.isRuleActive(rule, index);
 
-      if (active) {
-        nextActiveKeys.add(key);
-        // Fire on_active when transitioning from inactive -> active (after initial state snapshot)
-        if (this.hasInitializedStates && !this.activeRuleKeys.has(key) && rule.on_active) {
-          executeAction({
-            hass: this.hass,
-            config: rule.on_active,
-            defaultEntity: rule.entity,
-            defaultMessage: this.formatMessage(rule),
-          });
-        }
-      } else {
+      if (!active) {
         // Reset dismiss & snooze state when the underlying alert condition clears
         this.dismissedRuleKeys.delete(key);
         this.clearSnoozeForRule(key);
       }
     });
 
-    this.activeRuleKeys = nextActiveKeys;
     this.hasInitializedStates = true;
   }
 
@@ -407,70 +364,48 @@ export class GuardianAlertsCard extends LitElement {
     if (!this.hass || !this.config) return;
 
     if (changedProps.has('hass') || changedProps.has('config')) {
-      this.evaluateAndTriggerRules();
+      this.evaluateRules();
     }
   }
 
-  private executeRuleInteraction(
-    rule: AlertRule,
-    index: number | null,
-    actionInput?: ActionOrServiceInput
-  ): void {
-    const resolvedConfig = actionInput || { action: 'more-info' };
-
-    if (!Array.isArray(resolvedConfig) && index !== null) {
-      const act = (resolvedConfig as ActionConfig).action;
-      const ruleKey = this.getRuleKey(rule, index);
-
-      if (act === 'dismiss') {
-        this.dismissedRuleKeys.add(ruleKey);
-        this.requestUpdate();
-        return;
+  private onBannerTap(rule: AlertRule, index: number | null): void {
+    if (index === null) {
+      // Default "All Secured" banner: open More-Info if an entity was configured on it
+      if (rule.entity) {
+        window.dispatchEvent(
+          new CustomEvent('hass-more-info', {
+            bubbles: true,
+            composed: true,
+            detail: { entityId: rule.entity },
+          })
+        );
       }
+      return;
+    }
 
-      if (act === 'snooze' || act === 'snooze_30m' || act === 'delay_30m') {
-        const mins = Number((resolvedConfig as ActionConfig).snooze_minutes || 30);
-        const delayMs = Math.max(1000, mins * 60 * 1000);
-        this.clearSnoozeForRule(ruleKey);
-        this.snoozedUntilMap.set(ruleKey, Date.now() + delayMs);
+    const act = rule.tap_action?.action || 'dismiss';
+    const ruleKey = this.getRuleKey(rule, index);
 
-        const timerId = window.setTimeout(() => {
-          this.snoozeTimers.delete(ruleKey);
-          this.snoozedUntilMap.delete(ruleKey);
-          this.requestUpdate();
-        }, delayMs + 50);
-        this.snoozeTimers.set(ruleKey, timerId);
+    if (act === 'dismiss') {
+      this.dismissedRuleKeys.add(ruleKey);
+      this.requestUpdate();
+      return;
+    }
+
+    if (act === 'snooze' || act === 'snooze_30m' || act === 'delay_30m') {
+      const mins = Number(rule.tap_action?.snooze_minutes || 30);
+      const delayMs = Math.max(1000, mins * 60 * 1000);
+      this.clearSnoozeForRule(ruleKey);
+      this.snoozedUntilMap.set(ruleKey, Date.now() + delayMs);
+
+      const timerId = window.setTimeout(() => {
+        this.snoozeTimers.delete(ruleKey);
+        this.snoozedUntilMap.delete(ruleKey);
         this.requestUpdate();
-        return;
-      }
+      }, delayMs + 50);
+      this.snoozeTimers.set(ruleKey, timerId);
+      this.requestUpdate();
     }
-
-    executeAction({
-      hass: this.hass,
-      config: resolvedConfig,
-      defaultEntity: rule.entity,
-      defaultMessage: this.formatMessage(rule),
-    });
-  }
-
-  private onPointerDown(rule: AlertRule, index: number | null) {
-    this.isHolding = false;
-    this.holdTimeout = window.setTimeout(() => {
-      this.isHolding = true;
-      this.executeRuleInteraction(rule, index, rule.hold_action || { action: 'more-info' });
-    }, 500);
-  }
-
-  private onPointerUp(rule: AlertRule, index: number | null) {
-    clearTimeout(this.holdTimeout);
-    if (!this.isHolding) {
-      this.executeRuleInteraction(rule, index, rule.tap_action || { action: 'more-info' });
-    }
-  }
-
-  private onPointerCancel() {
-    clearTimeout(this.holdTimeout);
-    this.isHolding = false;
   }
 
   protected render() {
@@ -497,18 +432,12 @@ export class GuardianAlertsCard extends LitElement {
         {
           index: null,
           rule: {
-            entity: defaultAlert?.entity || this.config.alerts?.[0]?.entity || '',
+            entity: defaultAlert?.entity || '',
             state: '',
             template: defaultAlert?.template || 'SECURE',
             message: defaultAlert?.message || 'All Secured',
             icon: defaultAlert?.icon || 'mdi:shield-check',
             icon_color: defaultAlert?.icon_color,
-            tap_action:
-              defaultAlert?.tap_action ||
-              (defaultAlert?.entity ? { action: 'more-info' } : { action: 'none' }),
-            hold_action:
-              defaultAlert?.hold_action ||
-              (defaultAlert?.entity ? { action: 'more-info' } : { action: 'none' }),
           },
         },
       ];
@@ -527,9 +456,7 @@ export class GuardianAlertsCard extends LitElement {
               <div
                 class="banner template-${tpl.name.toLowerCase()}"
                 style=${rule.icon_color ? `--custom-icon-color: ${rule.icon_color};` : ''}
-                @pointerdown=${() => this.onPointerDown(rule, index)}
-                @pointerup=${() => this.onPointerUp(rule, index)}
-                @pointercancel=${() => this.onPointerCancel()}
+                @click=${() => this.onBannerTap(rule, index)}
               >
                 <div class="icon-wrap">
                   <ha-icon .icon="${icon}"></ha-icon>

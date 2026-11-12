@@ -116,7 +116,7 @@
     </details>
 
     <div class="service-log" id="service-log">
-        <div><strong>Service &amp; Event Log</strong> (toggle an alert ON to see <code>on_active</code> fire multiple services):</div>
+        <div><strong>Event Log</strong> (tap a banner to dismiss or snooze, or toggle states above):</div>
     </div>
 
     <script type="module">
@@ -178,62 +178,28 @@
             type: 'custom:guardian-alerts-card',
             alerts: [
                 {
+                    priority: 'P3',
                     entity: 'binary_sensor.front_porch_motion',
                     state: 'on',
                     template: 'INFO',
-                    message: 'Front porch delivery box unlocked (Default INFO icon)',
+                    message: 'Front porch delivery box unlocked (Tap to dismiss)',
+                    tap_action: { action: 'dismiss' },
                 },
                 {
+                    priority: 'P2',
                     entity: 'binary_sensor.garage_entry_door',
                     state: 'on',
                     template: 'WARNING',
-                    message: 'Garage door opened (Default WARNING icon)',
-                    on_active: [
-                        {
-                            service: 'scene.turn_on',
-                            target: { entity_id: 'scene.warning_lights' }
-                        },
-                        {
-                            service: 'script.tts_announce',
-                            service_data: {
-                                message: '{{ message }}',
-                                media_player: 'media_player.kitchen_speaker'
-                            }
-                        }
-                    ],
-                    tap_action: [
-                        {
-                            service: 'light.toggle',
-                            service_data: { entity_id: 'light.garage' }
-                        },
-                        {
-                            service: 'script.tts_announce',
-                            service_data: { message: 'Toggling garage light for: {{ message }}' }
-                        }
-                    ]
+                    message: 'Garage door opened (Tap to snooze 30m)',
+                    tap_action: { action: 'snooze_30m', snooze_minutes: 30 },
                 },
                 {
+                    priority: 'P1',
                     entity: 'alarm_control_panel.main_alarm',
                     state: 'triggered',
                     template: 'CRITICAL',
-                    message: 'Perimeter Intrusion Detected! (Default CRITICAL icon)',
-                    on_active: [
-                        {
-                            service: 'scene.turn_on',
-                            target: { entity_id: 'scene.emergency_red_lights' }
-                        },
-                        {
-                            service: 'script.tts_announce',
-                            service_data: {
-                                message: 'Critical alert: {{ message }}',
-                                media_player: 'media_player.whole_house'
-                            }
-                        }
-                    ],
-                    tap_action: {
-                        action: 'call-service',
-                        service: 'alarm_control_panel.alarm_disarm'
-                    }
+                    message: 'Perimeter Intrusion Detected! (Tap to dismiss)',
+                    tap_action: { action: 'dismiss' },
                 }
             ]
         };

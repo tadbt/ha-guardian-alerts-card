@@ -5,7 +5,7 @@
 [![Built with Gemini](https://img.shields.io/badge/Built%20with-Gemini-8E75B2?logo=googlegemini&logoColor=white)](https://deepmind.google/technologies/gemini/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-A modern, origami-inspired security and status alert banner card for **Home Assistant Lovelace**. Designed to stay completely hidden when everything is normal and surface high-visibility, theme-aware banners when monitored entities enter an alert state.
+A modern, origami-inspired security and status alert banner card for **Home Assistant Lovelace**. Focused purely on clean alert display: it shows a calm `All Secured` banner when everything is normal, and surfaces high-visibility, priority-sorted banners when monitored entities enter an alert state.
 
 > **Tag:** `built-with-gemini`
 
@@ -21,9 +21,9 @@ A modern, origami-inspired security and status alert banner card for **Home Assi
   - `WARNING`: Amber, slow `3.8s` breathing flash across the surface facets and icon (`mdi:alert`).
   - `CRITICAL`: Red, urgent `2.6s` slow pulse across the surface, inner glow, and icon (`mdi:shield-alert`).
 - **Theme-Aware Colors & Icons**: Automatically blends with your active Home Assistant theme (`--ha-card-background`, `--success-color`, `--info-color`, `--warning-color`, `--error-color`, `--state-icon-color`) via CSS `color-mix()`.
-- **Multi-Service Actions (`on_active`, `tap_action`, `hold_action`)**: Trigger multiple services simultaneously when an alert transitions to active or when tapped/held—for example, activating a lighting `scene` **and** calling a TTS announcement `script` with `{{ message }}`.
-- **Native Home Assistant Visual Editor (`<ha-form>`)**: Configure priority, alert template, entity, Equal / Not Equal state match, time-in-state delay, message, icon, tap action, and one or more on-active service calls using Home Assistant's built-in form selectors.
-- **Advanced Conditions in YAML**: Extra AND `conditions` (and the `contains` operator) are configured in YAML only, keeping the visual editor simple.
+- **Time-in-State Delays (`for`)**: Optionally require an entity to remain in its matching state for a configured duration (e.g., `00:05:00`) before showing the banner.
+- **Dismiss or Snooze on Tap**: Tap an active alert banner to dismiss it (until the entity clears and re-triggers) or snooze it for 30 minutes.
+- **Native Home Assistant Visual Editor (`<ha-form>`)**: Configure priority, alert template, entity, Equal / Not Equal state match, time-in-state delay, icon, message, and tap behavior using Home Assistant's built-in form selectors.
 
 ---
 
@@ -56,54 +56,30 @@ You can configure the card using the **Visual Editor** (**+ Add Card → Guardia
 ```yaml
 type: custom:guardian-alerts-card
 alerts:
-  - entity: binary_sensor.garage_entry_door
-    state: "on"
-    template: WARNING
-    message: "Garage door is open"
-    icon: mdi:garage-open
-    on_active:
-      - service: scene.turn_on
-        target:
-          entity_id: scene.warning_lights
-      - service: script.tts_announce
-        service_data:
-          message: "{{ message }}"
-          media_player: media_player.kitchen_speaker
-    tap_action:
-      - service: cover.close_cover
-        target:
-          entity_id: cover.garage_door
-
-  - entity: alarm_control_panel.main_alarm
+  - priority: P1
+    template: CRITICAL
+    entity: alarm_control_panel.main_alarm
     state: "triggered"
-    template: CRITICAL
     message: "Perimeter Intrusion Detected!"
-    # Omit `icon` to use the default CRITICAL icon (mdi:shield-alert)
-    on_active:
-      - service: scene.turn_on
-        target:
-          entity_id: scene.emergency_red_lights
-      - service: script.tts_announce
-        service_data:
-          message: "Critical alert: {{ message }}"
-    hold_action:
-      action: more-info
+    tap_action:
+      action: dismiss
 
-  - entity: alarm_control_panel.main_alarm
-    state: "disarmed"
-    template: INFO
-    message: "Security system is currently disarmed"
-
-  # Advanced: extra AND conditions are YAML-only
-  - entity: binary_sensor.garage_entry_door
+  - priority: P2
+    template: WARNING
+    entity: binary_sensor.garage_entry_door
     state: "on"
-    for: { minutes: 10 }
-    conditions:
-      - entity: person.jack
-        operator: not_equals
-        state: "home"
-    template: CRITICAL
-    message: "Garage open 10+ min while nobody is home"
+    for:
+      minutes: 5
+    icon: mdi:garage-open
+    message: "Garage door has been open for 5+ minutes"
+    tap_action:
+      action: snooze_30m
+
+  - priority: P3
+    template: INFO
+    entity: alarm_control_panel.main_alarm
+    state: "disarmed"
+    message: "Security system is currently disarmed"
 ```
 
 ---
@@ -113,23 +89,15 @@ alerts:
 | Key | Type | Required | Default | Description |
 | :--- | :--- | :---: | :--- | :--- |
 | `priority` | `'P1' \| 'P2' \| 'P3' \| 'P4'` | No | `'P2'` | Priority level (`P1` highest to `P4` lowest). Active alerts and rules are automatically ordered by priority. |
-| `entity` | `string` | **Yes** | — | Primary Home Assistant entity ID to monitor (e.g., `sensor.temperature`, `person.john`, `binary_sensor.front_door`). |
-| `state` | `string \| number \| Array<string \| number>` | **Yes** | — | Single state/value or list of multiple trigger states (e.g., `"on"`, `["open", "opening"]`, `["armed_away", "armed_home"]`). |
-| `operator` | `'equals' \| 'not_equals' \| 'contains'` | No | `'equals'` | How to compare the entity's state against `state`: **Equal (`=`)** or **Not Equal (`≠`)** in the Visual Editor; `contains` is available in YAML only. |
-| `for` | `{ hours?, minutes?, seconds? } \| string \| number` | No | `0` (immediate) | How long the entity must stay in the matching state before the alert shows (e.g., `{ minutes: 5 }`, `"00:05:00"`, or `30`). Set as **Time in State** in the Visual Editor. |
-| `conditions` | `AlertCondition[]` | No | — | **YAML only.** Additional **AND** conditions (`entity`, `operator`, `state`, `for`) that must all be met simultaneously. The Visual Editor shows a count but keeps them intact. |
-| `message` | `string` | No | `<entity name> is <state>` | Alert text displayed on the banner (supports `{{ state }}` and `{{ entity }}`). Leave empty to use the automatic text. |
 | `template` | `'SECURE' \| 'INFO' \| 'WARNING' \| 'CRITICAL'` | No | `'INFO'` | Controls the color palette, default icon, and slow-flashing behavior. |
+| `entity` | `string` | **Yes** | — | Home Assistant entity ID to monitor (e.g., `sensor.temperature`, `person.john`, `binary_sensor.front_door`). |
+| `operator` | `'equals' \| 'not_equals' \| 'contains'` | No | `'equals'` | How to compare the entity's state against `state`: **Equal (`=`)** or **Not Equal (`≠`)** in the Visual Editor; `contains` is also supported in YAML. |
+| `state` | `string \| number \| Array<string \| number>` | **Yes** | — | Single state/value or list of multiple trigger states (e.g., `"on"`, `["open", "opening"]`, `["armed_away", "armed_home"]`). |
+| `for` | `{ hours?, minutes?, seconds? } \| string \| number` | No | `0` (immediate) | How long the entity must stay in the matching state before the alert shows (e.g., `{ minutes: 5 }`, `"00:05:00"`, or `30`). |
 | `icon` | `string` | No | Template default | Custom icon (e.g., `mdi:garage-open`). Defaults to `mdi:shield-check` (`SECURE`), `mdi:information-outline` (`INFO`), `mdi:alert` (`WARNING`), or `mdi:shield-alert` (`CRITICAL`). |
 | `icon_color` | `string` | No | Theme blend | Optional CSS color override for this alert's icon (e.g., `"#22d3ee"`). |
-| `on_active` | `ActionOrServiceInput` | No | — | One or more service calls executed when the rule transitions from inactive to active. |
-| `tap_action` | `ActionOrServiceInput` | No | `more-info` | Supports `{ action: 'dismiss' }` (removes from active alert list), `{ action: 'snooze_30m' }` (auto-delays for 30 mins), `more-info`, `toggle`, or custom service calls. |
-| `hold_action` | `ActionOrServiceInput` | No | `more-info` | Action or list of service calls triggered after a `500ms` press-and-hold. |
-
-### Template Variables in `service_data` / `data`
-Inside any service call's `service_data` (or `data`), string values support:
-- `{{ message }}` — Replaced with the alert rule's `message`.
-- `{{ entity }}` — Replaced with the alert rule's `entity`.
+| `message` | `string` | No | `<entity name> is <state>` | Alert text displayed on the banner (supports `{{ state }}` and `{{ entity }}`). Leave empty to use the automatic text. |
+| `tap_action` | `{ action: 'dismiss' \| 'snooze_30m' \| 'none', snooze_minutes?: number }` | No | `{ action: 'dismiss' }` | Dismisses the banner until the state clears, snoozes it for 30 minutes, or does nothing (`none`). |
 
 ---
 
@@ -151,14 +119,14 @@ The card automatically adapts to your active Home Assistant theme using these CS
 ## 🧪 Local Development & Testing
 
 ### 1. Fast Browser Harness (Vite Hot Reload)
-Includes interactive state toggles, a live theme switcher, service call logs, and the embedded Visual Editor:
+Includes interactive state toggles, a live theme switcher, and the embedded Visual Editor:
 ```bash
 npm install
 npm run dev
 ```
 
 ### 2. Throwaway Home Assistant Container (Docker)
-Builds the production bundle and launches a pre-configured `home-assistant:stable` Docker container at `http://localhost:8123` with test entities, themes, scenes, and a sample TTS script pre-loaded:
+Builds the production bundle and launches a pre-configured `home-assistant:stable` Docker container at `http://localhost:8123` with test entities and themes pre-loaded:
 ```bash
 npm run test:ha
 ```
@@ -168,4 +136,3 @@ Outputs the standalone ES module to `dist/guardian-alerts-card.js`:
 ```bash
 npm run build
 ```
-
