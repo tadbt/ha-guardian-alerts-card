@@ -62,6 +62,7 @@ export class GuardianAlertsCard extends LitElement {
   @state() private keypadCode = '';
   @state() private keypadFeedback: { type: 'error' | 'success'; text: string } | null = null;
   @state() private armDelayRemaining = 0;
+  @state() private armDelayMode: 'arm' | 'away' | null = null;
 
   private holdTimeout?: number;
   private keypadFeedbackTimer?: number;
@@ -168,6 +169,7 @@ export class GuardianAlertsCard extends LitElement {
     this.keypadCode = '';
     this.keypadFeedback = null;
     this.armDelayRemaining = 0;
+    this.armDelayMode = null;
     this.activeEntryKeys.clear();
     this.matchedSinceMap.clear();
     this.dismissedEntryKeys.clear();
@@ -608,12 +610,13 @@ export class GuardianAlertsCard extends LitElement {
       this.armDelayInterval = undefined;
     }
     this.armDelayRemaining = 0;
+    this.armDelayMode = null;
     if (feedbackText) {
       this.setKeypadFeedback('success', feedbackText);
     }
   }
 
-  private async handleKeypadAction(mode: 'arm' | 'disarm'): Promise<void> {
+  private async handleKeypadAction(mode: 'arm' | 'away' | 'disarm'): Promise<void> {
     const keypadCfg = this.config?.default_alert?.keypad;
 
     if (mode === 'disarm') {
@@ -639,7 +642,7 @@ export class GuardianAlertsCard extends LitElement {
       return;
     }
 
-    if (mode === 'arm') {
+    if (mode === 'arm' || mode === 'away') {
       if (this.armDelayRemaining > 0) {
         this.cancelArmDelay('Arming cancelled');
         return;
@@ -649,11 +652,13 @@ export class GuardianAlertsCard extends LitElement {
       if (armDelaySec > 0) {
         this.keypadCode = '';
         this.keypadFeedback = null;
+        this.armDelayMode = mode;
         this.armDelayRemaining = armDelaySec;
         this.armDelayInterval = window.setInterval(() => {
           if (this.armDelayRemaining <= 1) {
+            const pendingMode = this.armDelayMode || mode;
             this.cancelArmDelay();
-            void this.executeKeypadService('arm', targetEntity, '');
+            void this.executeKeypadService(pendingMode, targetEntity, '');
           } else {
             this.armDelayRemaining -= 1;
           }
@@ -666,15 +671,14 @@ export class GuardianAlertsCard extends LitElement {
   }
 
   private async executeKeypadService(
-    mode: 'arm' | 'disarm',
+    mode: 'arm' | 'away' | 'disarm',
     targetEntity: string,
     enteredCode: string
   ): Promise<void> {
     const keypadCfg = this.config?.default_alert?.keypad;
-    const armValue = keypadCfg?.arm_value?.trim() || 'armed';
-    const disarmValue = keypadCfg?.disarm_value?.trim() || 'disarmed';
-    const value = mode === 'arm' ? armValue : disarmValue;
+    const value = mode === 'arm' ? 'armed' : mode === 'away' ? 'away' : 'disarmed';
     const domain = targetEntity.split('.')[0];
+    const isArming = mode === 'arm' || mode === 'away';
 
     try {
       if (domain === 'input_text' || domain === 'text') {
@@ -688,22 +692,24 @@ export class GuardianAlertsCard extends LitElement {
           option: value,
         });
       } else if (domain === 'input_boolean' || domain === 'switch' || domain === 'light') {
-        await this.hass.callService(domain, mode === 'arm' ? 'turn_on' : 'turn_off', {
+        await this.hass.callService(domain, isArming ? 'turn_on' : 'turn_off', {
           entity_id: targetEntity,
         });
       } else if (domain === 'lock') {
-        await this.hass.callService('lock', mode === 'arm' ? 'lock' : 'unlock', {
+        await this.hass.callService('lock', isArming ? 'lock' : 'unlock', {
           entity_id: targetEntity,
         });
       } else if (domain === 'alarm_control_panel') {
-        await this.hass.callService(
-          'alarm_control_panel',
-          mode === 'arm' ? 'alarm_arm_away' : 'alarm_disarm',
-          {
-            entity_id: targetEntity,
-            ...(enteredCode ? { code: enteredCode } : {}),
-          }
-        );
+        const alarmService =
+          mode === 'arm'
+            ? 'alarm_arm_home'
+            : mode === 'away'
+              ? 'alarm_arm_away'
+              : 'alarm_disarm';
+        await this.hass.callService('alarm_control_panel', alarmService, {
+          entity_id: targetEntity,
+          ...(enteredCode ? { code: enteredCode } : {}),
+        });
       } else {
         await this.hass.callService(domain, 'set_value', {
           entity_id: targetEntity,
@@ -711,8 +717,13 @@ export class GuardianAlertsCard extends LitElement {
         });
       }
 
+      if (keypadCfg?.chime && keypadCfg.chime !== 'none') {
+        playChime(keypadCfg.chime);
+      }
+
       this.keypadCode = '';
-      this.setKeypadFeedback('success', mode === 'arm' ? `Armed (${value})` : `Disarmed (${value})`);
+      const label = mode === 'arm' ? 'Armed' : mode === 'away' ? 'Away' : 'Disarmed';
+      this.setKeypadFeedback('success', `${label} (${value})`);
     } catch {
       this.setKeypadFeedback('error', 'Failed to update entity');
     }
@@ -724,6 +735,15 @@ export class GuardianAlertsCard extends LitElement {
     const currentEntityState = targetEntity ? this.hass?.states?.[targetEntity]?.state : undefined;
     const hasPasscodes = (keypadCfg?.passcodes || []).some((c) => String(c).trim().length > 0);
     const maskedDots = '•'.repeat(this.keypadCode.length);
+
+    const stateLower = currentEntityState?.toLowerCase();
+    const isArmedOrAway =
+      stateLower !== undefined &&
+      (stateLower === 'armed' ||
+        stateLower.startsWith('armed') ||
+        stateLower === 'away' ||
+        stateLower === 'on' ||
+        stateLower === 'locked');
 
     return html`
       <div
@@ -737,13 +757,17 @@ export class GuardianAlertsCard extends LitElement {
             ${this.keypadCode.length > 0
               ? html`<span class="keypad-dots">${maskedDots}</span>`
               : html`<span class="keypad-placeholder">
-                  ${hasPasscodes ? 'Enter code to disarm' : 'No passcode required'}
+                  ${isArmedOrAway
+                    ? hasPasscodes
+                      ? 'Enter code to disarm'
+                      : 'Ready to disarm'
+                    : 'Select Arm or Away'}
                 </span>`}
           </div>
           ${this.armDelayRemaining > 0
             ? html`
                 <span class="keypad-feedback arming">
-                  Arming in ${this.armDelayRemaining}s
+                  ${this.armDelayMode === 'away' ? 'Away' : 'Arming'} in ${this.armDelayRemaining}s
                 </span>
               `
             : this.keypadFeedback
@@ -757,24 +781,52 @@ export class GuardianAlertsCard extends LitElement {
                 : nothing}
         </div>
 
-        <div class="keypad-actions">
-          <button
-            type="button"
-            class="keypad-action-btn keypad-arm-btn"
-            @click=${() => void this.handleKeypadAction('arm')}
-          >
-            <ha-icon icon="mdi:shield-lock"></ha-icon>
-            <span>${this.armDelayRemaining > 0 ? `Cancel (${this.armDelayRemaining}s)` : 'Arm'}</span>
-          </button>
-          <button
-            type="button"
-            class="keypad-action-btn keypad-disarm-btn"
-            @click=${() => void this.handleKeypadAction('disarm')}
-          >
-            <ha-icon icon="mdi:shield-off"></ha-icon>
-            <span>Disarm</span>
-          </button>
-        </div>
+        ${this.armDelayRemaining > 0
+          ? html`
+              <div class="keypad-actions single">
+                <button
+                  type="button"
+                  class="keypad-action-btn keypad-arm-btn"
+                  @click=${() => this.cancelArmDelay('Arming cancelled')}
+                >
+                  <ha-icon icon="mdi:close-circle-outline"></ha-icon>
+                  <span>Cancel (${this.armDelayRemaining}s)</span>
+                </button>
+              </div>
+            `
+          : isArmedOrAway
+            ? html`
+                <div class="keypad-actions single">
+                  <button
+                    type="button"
+                    class="keypad-action-btn keypad-disarm-btn"
+                    @click=${() => void this.handleKeypadAction('disarm')}
+                  >
+                    <ha-icon icon="mdi:shield-off"></ha-icon>
+                    <span>Disarm</span>
+                  </button>
+                </div>
+              `
+            : html`
+                <div class="keypad-actions">
+                  <button
+                    type="button"
+                    class="keypad-action-btn keypad-arm-btn"
+                    @click=${() => void this.handleKeypadAction('arm')}
+                  >
+                    <ha-icon icon="mdi:shield-lock"></ha-icon>
+                    <span>Arm</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="keypad-action-btn keypad-away-btn"
+                    @click=${() => void this.handleKeypadAction('away')}
+                  >
+                    <ha-icon icon="mdi:home-export-outline"></ha-icon>
+                    <span>Away</span>
+                  </button>
+                </div>
+              `}
 
         <div class="keypad-grid">
           ${['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(
@@ -885,11 +937,11 @@ export class GuardianAlertsCard extends LitElement {
             isSecureDefault && keypadEntityId
               ? this.hass?.states?.[keypadEntityId]?.state
               : undefined;
-          const armValue = (keypadCfg?.arm_value?.trim() || 'armed').toLowerCase();
           const isArmedState =
             alarmStateRaw !== undefined &&
-            (alarmStateRaw.toLowerCase() === armValue ||
+            (alarmStateRaw.toLowerCase() === 'armed' ||
               alarmStateRaw.toLowerCase().startsWith('armed') ||
+              alarmStateRaw.toLowerCase() === 'away' ||
               alarmStateRaw.toLowerCase() === 'on' ||
               alarmStateRaw.toLowerCase() === 'locked');
 
@@ -1206,6 +1258,10 @@ export class GuardianAlertsCard extends LitElement {
         gap: 8px;
       }
 
+      .keypad-actions.single {
+        grid-template-columns: 1fr;
+      }
+
       .keypad-action-btn {
         display: inline-flex;
         align-items: center;
@@ -1236,6 +1292,12 @@ export class GuardianAlertsCard extends LitElement {
         background: color-mix(in srgb, var(--warning-color, #f59e0b) 22%, var(--base-surface));
         color: var(--warning-color, #fbbf24);
         border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 48%, transparent);
+      }
+
+      .keypad-away-btn {
+        background: color-mix(in srgb, var(--error-color, #ef4444) 22%, var(--base-surface));
+        color: var(--error-color, #f87171);
+        border-color: color-mix(in srgb, var(--error-color, #ef4444) 48%, transparent);
       }
 
       .keypad-disarm-btn {

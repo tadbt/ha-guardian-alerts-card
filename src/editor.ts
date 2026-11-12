@@ -418,18 +418,18 @@ export class GuardianAlertsCardEditor extends LitElement {
           {
             name: 'keypad_entity',
             label: 'Arm / Disarm Target Entity',
-            helper: 'Entity updated on Arm/Disarm (e.g. input_text, input_select, input_boolean, alarm_control_panel)',
+            helper: 'Sets entity to "armed", "away", or "disarmed" (e.g. input_text, input_select, input_boolean, alarm_control_panel)',
             selector: { entity: {} },
           },
           {
-            name: 'keypad_arm_value',
-            label: 'Arm Value (default: armed)',
-            selector: { text: {} },
-          },
-          {
-            name: 'keypad_disarm_value',
-            label: 'Disarm Value (default: disarmed)',
-            selector: { text: {} },
+            name: 'keypad_chime',
+            label: 'Chime on Arm / Away / Disarm',
+            selector: {
+              select: {
+                mode: 'dropdown',
+                options: CHIME_OPTIONS,
+              },
+            },
           },
           {
             name: 'keypad_arm_delay',
@@ -578,10 +578,12 @@ export class GuardianAlertsCardEditor extends LitElement {
     const nextKeypad: KeypadConfig = {
       ...prevKeypad,
       enabled: value.keypad_enabled !== false,
-      arm_value: value.keypad_arm_value ?? prevKeypad.arm_value ?? 'armed',
-      disarm_value: value.keypad_disarm_value ?? prevKeypad.disarm_value ?? 'disarmed',
       arm_delay: Math.max(0, Math.floor(Number(value.keypad_arm_delay ?? prevKeypad.arm_delay ?? 0))),
+      chime: normalizeChimeType(value.keypad_chime ?? prevKeypad.chime),
     };
+    delete (nextKeypad as any).arm_value;
+    delete (nextKeypad as any).away_value;
+    delete (nextKeypad as any).disarm_value;
 
     if (value.keypad_entity && String(value.keypad_entity).trim() !== '') {
       nextKeypad.entity = String(value.keypad_entity).trim();
@@ -792,9 +794,8 @@ export class GuardianAlertsCardEditor extends LitElement {
       entity: this.config.default_alert?.entity || '',
       keypad_enabled: keypadEnabled,
       keypad_entity: keypadCfg?.entity || '',
-      keypad_arm_value: keypadCfg?.arm_value ?? 'armed',
-      keypad_disarm_value: keypadCfg?.disarm_value ?? 'disarmed',
       keypad_arm_delay: Math.max(0, Math.floor(Number(keypadCfg?.arm_delay ?? 0))),
+      keypad_chime: normalizeChimeType(keypadCfg?.chime),
     };
 
     return html`

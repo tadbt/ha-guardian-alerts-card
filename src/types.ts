@@ -33,10 +33,9 @@ export interface AlertRule {
 
 export interface KeypadConfig {
     enabled?: boolean; // Defaults to true on the secure card
-    entity?: string; // Target entity to update on Arm/Disarm
-    arm_value?: string; // Value set on Arm (default: 'armed')
-    disarm_value?: string; // Value set on Disarm (default: 'disarmed')
+    entity?: string; // Target entity to update on Arm/Away/Disarm
     arm_delay?: number; // Seconds delay before arming (default: 0)
+    chime?: ChimeType; // Optional chime played on Arm / Away / Disarm
     passcodes?: string[]; // One or more valid passcodes (required for Disarm)
 }
 
