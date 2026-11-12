@@ -9,6 +9,7 @@ import {
   DefaultAlertConfig,
   DurationConfig,
   GuardianAlertsCardConfig,
+  KeypadConfig,
   StateOperator,
 } from './types';
 import { getTemplate } from './templates';
@@ -112,8 +113,9 @@ export class GuardianAlertsCardEditor extends LitElement {
   @state() private config?: GuardianAlertsCardConfig;
   // Accordion state: only ONE rule can be open at a time (-1 = Default Rule, 0..N-1 = Alert Rule, null = all collapsed)
   @state() private expandedRuleIndex: number | null = 0;
+  @state() private revealPasscodes = false;
 
-  private defaultSchemaCache = new Map<boolean, HaFormSchemaItem[]>();
+  private defaultSchemaCache = new Map<string, HaFormSchemaItem[]>();
   private ruleSchemaCache = new Map<string, HaFormSchemaItem[]>();
 
   public connectedCallback(): void {
@@ -360,8 +362,9 @@ export class GuardianAlertsCardEditor extends LitElement {
     return options;
   }
 
-  private getDefaultAlertSchema(showDefault: boolean): HaFormSchemaItem[] {
-    const cached = this.defaultSchemaCache.get(showDefault);
+  private getDefaultAlertSchema(showDefault: boolean, keypadEnabled: boolean): HaFormSchemaItem[] {
+    const cacheKey = `${showDefault}:${keypadEnabled}`;
+    const cached = this.defaultSchemaCache.get(cacheKey);
     if (cached) return cached;
 
     const schema: HaFormSchemaItem[] = [
@@ -402,11 +405,51 @@ export class GuardianAlertsCardEditor extends LitElement {
           name: 'entity',
           label: 'Optional Entity (for Tap More-Info)',
           selector: { entity: {} },
+        },
+        {
+          name: 'keypad_enabled',
+          label: 'Show Keypad Button on Secure Card',
+          selector: { boolean: {} },
         }
       );
+
+      if (keypadEnabled) {
+        schema.push(
+          {
+            name: 'keypad_entity',
+            label: 'Arm / Disarm Target Entity',
+            helper: 'Entity updated on Arm/Disarm (e.g. input_text, input_select, input_boolean, alarm_control_panel)',
+            selector: { entity: {} },
+          },
+          {
+            name: 'keypad_arm_value',
+            label: 'Arm Value (default: armed)',
+            selector: { text: {} },
+          },
+          {
+            name: 'keypad_disarm_value',
+            label: 'Disarm Value (default: disarmed)',
+            selector: { text: {} },
+          },
+          {
+            name: 'keypad_arm_delay',
+            label: 'Arm Delay (seconds)',
+            helper: 'Optional countdown in seconds before arming (0 = immediate)',
+            selector: {
+              number: {
+                min: 0,
+                max: 300,
+                step: 1,
+                mode: 'box',
+                unit_of_measurement: 's',
+              },
+            },
+          }
+        );
+      }
     }
 
-    this.defaultSchemaCache.set(showDefault, schema);
+    this.defaultSchemaCache.set(cacheKey, schema);
     return schema;
   }
 
@@ -531,11 +574,27 @@ export class GuardianAlertsCardEditor extends LitElement {
     if (!value) return;
 
     const showDefault = value.show_default_alert !== false;
+    const prevKeypad = this.config.default_alert?.keypad || {};
+    const nextKeypad: KeypadConfig = {
+      ...prevKeypad,
+      enabled: value.keypad_enabled !== false,
+      arm_value: value.keypad_arm_value ?? prevKeypad.arm_value ?? 'armed',
+      disarm_value: value.keypad_disarm_value ?? prevKeypad.disarm_value ?? 'disarmed',
+      arm_delay: Math.max(0, Math.floor(Number(value.keypad_arm_delay ?? prevKeypad.arm_delay ?? 0))),
+    };
+
+    if (value.keypad_entity && String(value.keypad_entity).trim() !== '') {
+      nextKeypad.entity = String(value.keypad_entity).trim();
+    } else {
+      delete nextKeypad.entity;
+    }
+
     const nextDefaultAlert: DefaultAlertConfig = {
       ...(this.config.default_alert || {}),
       template: (value.template || 'SECURE') as AlertSeverity,
       message: value.message ?? 'All Secured',
       icon: value.icon || 'mdi:shield-check',
+      keypad: nextKeypad,
     };
 
     if (value.entity && value.entity.trim() !== '') {
@@ -550,6 +609,40 @@ export class GuardianAlertsCardEditor extends LitElement {
       show_default_alert: showDefault,
       default_alert: nextDefaultAlert,
     });
+  }
+
+  private updateKeypadPasscodes(passcodes: string[]): void {
+    if (!this.config) return;
+    const prevDefault = this.config.default_alert || {};
+    const prevKeypad = prevDefault.keypad || {};
+    this.emitConfigChanged({
+      ...this.config,
+      type: this.config.type || 'custom:guardian-alerts-card',
+      default_alert: {
+        ...prevDefault,
+        keypad: {
+          ...prevKeypad,
+          passcodes,
+        },
+      },
+    });
+  }
+
+  private addPasscode(): void {
+    const existing = this.config?.default_alert?.keypad?.passcodes || [];
+    this.updateKeypadPasscodes([...existing, '']);
+  }
+
+  private updatePasscode(index: number, value: string): void {
+    const sanitized = value.replace(/\D/g, '').slice(0, 4);
+    const existing = [...(this.config?.default_alert?.keypad?.passcodes || [])];
+    existing[index] = sanitized;
+    this.updateKeypadPasscodes(existing);
+  }
+
+  private removePasscode(index: number): void {
+    const existing = this.config?.default_alert?.keypad?.passcodes || [];
+    this.updateKeypadPasscodes(existing.filter((_, i) => i !== index));
   }
 
   private onRuleFormChanged(index: number, ev: CustomEvent): void {
@@ -687,6 +780,9 @@ export class GuardianAlertsCardEditor extends LitElement {
     if (!this.config) return nothing;
 
     const showDefault = this.config.show_default_alert !== false;
+    const keypadCfg = this.config.default_alert?.keypad;
+    const keypadEnabled = keypadCfg?.enabled !== false;
+    const passcodes = keypadCfg?.passcodes || [];
     const isDefaultOpen = this.expandedRuleIndex === -1;
     const defaultAlertData = {
       show_default_alert: showDefault,
@@ -694,6 +790,11 @@ export class GuardianAlertsCardEditor extends LitElement {
       template: (this.config.default_alert?.template || 'SECURE').toUpperCase(),
       icon: this.config.default_alert?.icon || 'mdi:shield-check',
       entity: this.config.default_alert?.entity || '',
+      keypad_enabled: keypadEnabled,
+      keypad_entity: keypadCfg?.entity || '',
+      keypad_arm_value: keypadCfg?.arm_value ?? 'armed',
+      keypad_disarm_value: keypadCfg?.disarm_value ?? 'disarmed',
+      keypad_arm_delay: Math.max(0, Math.floor(Number(keypadCfg?.arm_delay ?? 0))),
     };
 
     return html`
@@ -727,11 +828,80 @@ export class GuardianAlertsCardEditor extends LitElement {
                   <ha-form
                     .hass=${this.hass}
                     .data=${defaultAlertData}
-                    .schema=${this.getDefaultAlertSchema(showDefault)}
+                    .schema=${this.getDefaultAlertSchema(showDefault, keypadEnabled)}
                     .computeLabel=${this.computeLabel}
                     .computeHelper=${this.computeHelper}
                     @value-changed=${(ev: CustomEvent) => this.onDefaultAlertFormChanged(ev)}
                   ></ha-form>
+
+                  ${showDefault && keypadEnabled
+                    ? html`
+                        <div class="passcodes-section">
+                          <div class="passcodes-header">
+                            <div class="passcodes-title-group">
+                              <span class="passcodes-title">Keypad Passcodes</span>
+                              <span class="passcodes-hint">
+                                Numbers only, max 4 digits. Leave empty to allow Arm/Disarm without a code.
+                              </span>
+                            </div>
+                            <div class="passcodes-header-actions">
+                              <button
+                                type="button"
+                                class="btn-secondary-sm"
+                                @click=${() => (this.revealPasscodes = !this.revealPasscodes)}
+                              >
+                                ${this.revealPasscodes ? 'Hide' : 'Show'}
+                              </button>
+                              <button
+                                type="button"
+                                class="btn-secondary-sm"
+                                @click=${() => this.addPasscode()}
+                              >
+                                + Add Passcode
+                              </button>
+                            </div>
+                          </div>
+
+                          ${passcodes.length > 0
+                            ? html`
+                                <div class="passcodes-list">
+                                  ${passcodes.map(
+                                    (code, idx) => html`
+                                      <div class="passcode-row">
+                                        <input
+                                          class="passcode-input"
+                                          type=${this.revealPasscodes ? 'text' : 'password'}
+                                          inputmode="numeric"
+                                          pattern="[0-9]*"
+                                          maxlength="4"
+                                          placeholder="4-digit PIN #${idx + 1}"
+                                          .value=${code}
+                                          @input=${(ev: Event) => {
+                                            const input = ev.target as HTMLInputElement;
+                                            const sanitized = input.value.replace(/\D/g, '').slice(0, 4);
+                                            if (input.value !== sanitized) {
+                                              input.value = sanitized;
+                                            }
+                                            this.updatePasscode(idx, sanitized);
+                                          }}
+                                        />
+                                        <button
+                                          type="button"
+                                          class="btn-danger-sm"
+                                          title="Remove passcode"
+                                          @click=${() => this.removePasscode(idx)}
+                                        >
+                                          Remove
+                                        </button>
+                                      </div>
+                                    `
+                                  )}
+                                </div>
+                              `
+                            : nothing}
+                        </div>
+                      `
+                    : nothing}
                 </div>
               `
             : nothing}
@@ -1012,6 +1182,78 @@ export class GuardianAlertsCardEditor extends LitElement {
       background: rgba(239, 68, 68, 0.15);
       color: #f87171;
       padding: 4px 10px;
+    }
+
+    .btn-secondary-sm {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--primary-text-color, #f3f4f6);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 4px 10px;
+    }
+
+    .passcodes-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .passcodes-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .passcodes-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .passcodes-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--primary-text-color, #f3f4f6);
+    }
+
+    .passcodes-hint {
+      font-size: 0.74rem;
+      color: var(--secondary-text-color, #94a3b8);
+    }
+
+    .passcodes-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .passcodes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .passcode-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .passcode-input {
+      flex: 1;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--primary-text-color, #f3f4f6);
+      font-size: 0.85rem;
     }
   `;
 }

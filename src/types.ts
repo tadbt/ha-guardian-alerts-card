@@ -31,12 +31,22 @@ export interface AlertRule {
     icon_color?: string;
 }
 
+export interface KeypadConfig {
+    enabled?: boolean; // Defaults to true on the secure card
+    entity?: string; // Target entity to update on Arm/Disarm
+    arm_value?: string; // Value set on Arm (default: 'armed')
+    disarm_value?: string; // Value set on Disarm (default: 'disarmed')
+    arm_delay?: number; // Seconds delay before arming (default: 0)
+    passcodes?: string[]; // One or more valid passcodes (required for Disarm)
+}
+
 export interface DefaultAlertConfig {
     entity?: string;
     template?: AlertSeverity;
     message?: string;
     icon?: string;
     icon_color?: string;
+    keypad?: KeypadConfig;
 }
 
 export interface GuardianAlertsCardConfig {

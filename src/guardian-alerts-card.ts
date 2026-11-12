@@ -9,6 +9,7 @@ import {
   ChimeType,
   DurationConfig,
   GuardianAlertsCardConfig,
+  KeypadConfig,
   StateOperator,
 } from './types';
 import './editor';
@@ -19,6 +20,7 @@ export type {
   ChimeType,
   DurationConfig,
   GuardianAlertsCardConfig,
+  KeypadConfig,
   StateOperator,
 };
 
@@ -56,8 +58,14 @@ export class GuardianAlertsCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
   @state() private config!: GuardianAlertsCardConfig;
   @state() private holdMenuKey: string | null = null;
+  @state() private keypadOpen = false;
+  @state() private keypadCode = '';
+  @state() private keypadFeedback: { type: 'error' | 'success'; text: string } | null = null;
+  @state() private armDelayRemaining = 0;
 
   private holdTimeout?: number;
+  private keypadFeedbackTimer?: number;
+  private armDelayInterval?: number;
   private isHolding = false;
   private relativeTimeInterval?: number;
   private activeEntryKeys = new Set<string>();
@@ -98,6 +106,9 @@ export class GuardianAlertsCard extends LitElement {
 
   private clearAllTimers(): void {
     window.clearTimeout(this.holdTimeout);
+    window.clearTimeout(this.keypadFeedbackTimer);
+    window.clearInterval(this.armDelayInterval);
+    this.armDelayInterval = undefined;
     for (const timerId of this.durationTimers.values()) {
       window.clearTimeout(timerId);
     }
@@ -153,6 +164,10 @@ export class GuardianAlertsCard extends LitElement {
       alerts: Array.isArray(config.alerts) ? config.alerts : [],
     };
     this.holdMenuKey = null;
+    this.keypadOpen = false;
+    this.keypadCode = '';
+    this.keypadFeedback = null;
+    this.armDelayRemaining = 0;
     this.activeEntryKeys.clear();
     this.matchedSinceMap.clear();
     this.dismissedEntryKeys.clear();
@@ -549,6 +564,258 @@ export class GuardianAlertsCard extends LitElement {
     this.holdMenuKey = null;
   }
 
+  private toggleKeypad(ev: Event): void {
+    ev.stopPropagation();
+    this.keypadOpen = !this.keypadOpen;
+    if (!this.keypadOpen) {
+      this.keypadCode = '';
+      this.keypadFeedback = null;
+    }
+  }
+
+  private appendKeypadDigit(digit: string): void {
+    if (!/^\d$/.test(digit) || this.keypadCode.length >= 4) {
+      return;
+    }
+    if (this.keypadFeedback?.type === 'error') {
+      this.keypadFeedback = null;
+    }
+    this.keypadCode = `${this.keypadCode}${digit}`;
+  }
+
+  private backspaceKeypad(): void {
+    if (this.keypadCode.length > 0) {
+      this.keypadCode = this.keypadCode.slice(0, -1);
+    }
+  }
+
+  private clearKeypadCode(): void {
+    this.keypadCode = '';
+    this.keypadFeedback = null;
+  }
+
+  private setKeypadFeedback(type: 'error' | 'success', text: string): void {
+    window.clearTimeout(this.keypadFeedbackTimer);
+    this.keypadFeedback = { type, text };
+    this.keypadFeedbackTimer = window.setTimeout(() => {
+      this.keypadFeedback = null;
+    }, 2800);
+  }
+
+  private cancelArmDelay(feedbackText?: string): void {
+    if (this.armDelayInterval !== undefined) {
+      window.clearInterval(this.armDelayInterval);
+      this.armDelayInterval = undefined;
+    }
+    this.armDelayRemaining = 0;
+    if (feedbackText) {
+      this.setKeypadFeedback('success', feedbackText);
+    }
+  }
+
+  private async handleKeypadAction(mode: 'arm' | 'disarm'): Promise<void> {
+    const keypadCfg = this.config?.default_alert?.keypad;
+
+    if (mode === 'disarm') {
+      const validPasscodes = (keypadCfg?.passcodes || [])
+        .map((code) => String(code).replace(/\D/g, '').slice(0, 4))
+        .filter((code) => code.length > 0);
+
+      if (validPasscodes.length > 0 && !validPasscodes.includes(this.keypadCode)) {
+        this.keypadCode = '';
+        this.setKeypadFeedback('error', 'Invalid passcode');
+        return;
+      }
+
+      if (this.armDelayRemaining > 0) {
+        this.cancelArmDelay();
+      }
+    }
+
+    const targetEntity = keypadCfg?.entity?.trim();
+    if (!targetEntity) {
+      this.keypadCode = '';
+      this.setKeypadFeedback('error', 'Set target entity in card settings');
+      return;
+    }
+
+    if (mode === 'arm') {
+      if (this.armDelayRemaining > 0) {
+        this.cancelArmDelay('Arming cancelled');
+        return;
+      }
+
+      const armDelaySec = Math.max(0, Math.floor(Number(keypadCfg?.arm_delay || 0)));
+      if (armDelaySec > 0) {
+        this.keypadCode = '';
+        this.keypadFeedback = null;
+        this.armDelayRemaining = armDelaySec;
+        this.armDelayInterval = window.setInterval(() => {
+          if (this.armDelayRemaining <= 1) {
+            this.cancelArmDelay();
+            void this.executeKeypadService('arm', targetEntity, '');
+          } else {
+            this.armDelayRemaining -= 1;
+          }
+        }, 1000);
+        return;
+      }
+    }
+
+    await this.executeKeypadService(mode, targetEntity, this.keypadCode);
+  }
+
+  private async executeKeypadService(
+    mode: 'arm' | 'disarm',
+    targetEntity: string,
+    enteredCode: string
+  ): Promise<void> {
+    const keypadCfg = this.config?.default_alert?.keypad;
+    const armValue = keypadCfg?.arm_value?.trim() || 'armed';
+    const disarmValue = keypadCfg?.disarm_value?.trim() || 'disarmed';
+    const value = mode === 'arm' ? armValue : disarmValue;
+    const domain = targetEntity.split('.')[0];
+
+    try {
+      if (domain === 'input_text' || domain === 'text') {
+        await this.hass.callService(domain, 'set_value', {
+          entity_id: targetEntity,
+          value,
+        });
+      } else if (domain === 'input_select' || domain === 'select') {
+        await this.hass.callService(domain, 'select_option', {
+          entity_id: targetEntity,
+          option: value,
+        });
+      } else if (domain === 'input_boolean' || domain === 'switch' || domain === 'light') {
+        await this.hass.callService(domain, mode === 'arm' ? 'turn_on' : 'turn_off', {
+          entity_id: targetEntity,
+        });
+      } else if (domain === 'lock') {
+        await this.hass.callService('lock', mode === 'arm' ? 'lock' : 'unlock', {
+          entity_id: targetEntity,
+        });
+      } else if (domain === 'alarm_control_panel') {
+        await this.hass.callService(
+          'alarm_control_panel',
+          mode === 'arm' ? 'alarm_arm_away' : 'alarm_disarm',
+          {
+            entity_id: targetEntity,
+            ...(enteredCode ? { code: enteredCode } : {}),
+          }
+        );
+      } else {
+        await this.hass.callService(domain, 'set_value', {
+          entity_id: targetEntity,
+          value,
+        });
+      }
+
+      this.keypadCode = '';
+      this.setKeypadFeedback('success', mode === 'arm' ? `Armed (${value})` : `Disarmed (${value})`);
+    } catch {
+      this.setKeypadFeedback('error', 'Failed to update entity');
+    }
+  }
+
+  private renderKeypadDropdown() {
+    const keypadCfg = this.config?.default_alert?.keypad;
+    const targetEntity = keypadCfg?.entity?.trim();
+    const currentEntityState = targetEntity ? this.hass?.states?.[targetEntity]?.state : undefined;
+    const hasPasscodes = (keypadCfg?.passcodes || []).some((c) => String(c).trim().length > 0);
+    const maskedDots = '•'.repeat(this.keypadCode.length);
+
+    return html`
+      <div
+        class="keypad-dropdown"
+        @pointerdown=${(ev: Event) => ev.stopPropagation()}
+        @pointerup=${(ev: Event) => ev.stopPropagation()}
+        @click=${(ev: Event) => ev.stopPropagation()}
+      >
+        <div class="keypad-status-bar">
+          <div class="keypad-code-display ${this.keypadFeedback?.type === 'error' ? 'error' : ''}">
+            ${this.keypadCode.length > 0
+              ? html`<span class="keypad-dots">${maskedDots}</span>`
+              : html`<span class="keypad-placeholder">
+                  ${hasPasscodes ? 'Enter code to disarm' : 'No passcode required'}
+                </span>`}
+          </div>
+          ${this.armDelayRemaining > 0
+            ? html`
+                <span class="keypad-feedback arming">
+                  Arming in ${this.armDelayRemaining}s
+                </span>
+              `
+            : this.keypadFeedback
+              ? html`
+                  <span class="keypad-feedback ${this.keypadFeedback.type}">
+                    ${this.keypadFeedback.text}
+                  </span>
+                `
+              : currentEntityState !== undefined
+                ? html`<span class="keypad-entity-state">${currentEntityState}</span>`
+                : nothing}
+        </div>
+
+        <div class="keypad-actions">
+          <button
+            type="button"
+            class="keypad-action-btn keypad-arm-btn"
+            @click=${() => void this.handleKeypadAction('arm')}
+          >
+            <ha-icon icon="mdi:shield-lock"></ha-icon>
+            <span>${this.armDelayRemaining > 0 ? `Cancel (${this.armDelayRemaining}s)` : 'Arm'}</span>
+          </button>
+          <button
+            type="button"
+            class="keypad-action-btn keypad-disarm-btn"
+            @click=${() => void this.handleKeypadAction('disarm')}
+          >
+            <ha-icon icon="mdi:shield-off"></ha-icon>
+            <span>Disarm</span>
+          </button>
+        </div>
+
+        <div class="keypad-grid">
+          ${['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(
+            (digit) => html`
+              <button
+                type="button"
+                class="keypad-key"
+                @click=${() => this.appendKeypadDigit(digit)}
+              >
+                ${digit}
+              </button>
+            `
+          )}
+          <button
+            type="button"
+            class="keypad-key keypad-key-secondary"
+            title="Clear"
+            @click=${() => this.clearKeypadCode()}
+          >
+            ✕
+          </button>
+          <button
+            type="button"
+            class="keypad-key"
+            @click=${() => this.appendKeypadDigit('0')}
+          >
+            0
+          </button>
+          <button
+            type="button"
+            class="keypad-key keypad-key-secondary"
+            title="Backspace"
+            @click=${() => this.backspaceKeypad()}
+          >
+            ⌫
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   protected render() {
     if (!this.hass || !this.config) return nothing;
 
@@ -609,9 +876,25 @@ export class GuardianAlertsCard extends LitElement {
           const badgeText = priority ? `${priority} · ${tpl.name}` : tpl.name;
           const lastChanged = index !== null ? this.formatLastChanged(entityId) : null;
           const isHoldMenuOpen = key !== null && this.holdMenuKey === key;
+          const isSecureDefault = index === null;
+          const keypadCfg = this.config.default_alert?.keypad;
+          const showKeypadButton =
+            isSecureDefault && keypadCfg?.enabled !== false;
+          const keypadEntityId = keypadCfg?.entity?.trim();
+          const alarmStateRaw =
+            isSecureDefault && keypadEntityId
+              ? this.hass?.states?.[keypadEntityId]?.state
+              : undefined;
+          const armValue = (keypadCfg?.arm_value?.trim() || 'armed').toLowerCase();
+          const isArmedState =
+            alarmStateRaw !== undefined &&
+            (alarmStateRaw.toLowerCase() === armValue ||
+              alarmStateRaw.toLowerCase().startsWith('armed') ||
+              alarmStateRaw.toLowerCase() === 'on' ||
+              alarmStateRaw.toLowerCase() === 'locked');
 
           return html`
-            <div class="banner-wrapper">
+            <div class="banner-wrapper ${showKeypadButton && this.keypadOpen ? 'keypad-open' : ''}">
               <div
                 class="banner template-${tpl.name.toLowerCase()}"
                 style=${rule.icon_color ? `--custom-icon-color: ${rule.icon_color};` : ''}
@@ -641,6 +924,44 @@ export class GuardianAlertsCard extends LitElement {
                   </div>
                   <span class="message">${this.formatMessage(rule, entityId)}</span>
                 </div>
+
+                ${isSecureDefault && (showKeypadButton || this.armDelayRemaining > 0 || alarmStateRaw !== undefined)
+                  ? html`
+                      <div class="secure-right-controls">
+                        ${this.armDelayRemaining > 0
+                          ? html`
+                              <span class="alarm-status-badge arming">
+                                ⏳ Arming in ${this.armDelayRemaining}s
+                              </span>
+                            `
+                          : alarmStateRaw !== undefined
+                            ? html`
+                                <span
+                                  class="alarm-status-badge ${isArmedState ? 'armed' : 'disarmed'}"
+                                >
+                                  ${isArmedState ? '🔒' : '🔓'} ${alarmStateRaw}
+                                </span>
+                              `
+                            : nothing}
+                        ${showKeypadButton
+                          ? html`
+                              <button
+                                type="button"
+                                class="keypad-toggle-btn ${this.keypadOpen ? 'active' : ''}"
+                                title=${this.keypadOpen ? 'Close Keypad' : 'Open Arm / Disarm Keypad'}
+                                aria-label=${this.keypadOpen ? 'Close Keypad' : 'Open Arm / Disarm Keypad'}
+                                aria-expanded=${this.keypadOpen ? 'true' : 'false'}
+                                @pointerdown=${(ev: Event) => ev.stopPropagation()}
+                                @pointerup=${(ev: Event) => ev.stopPropagation()}
+                                @click=${(ev: Event) => this.toggleKeypad(ev)}
+                              >
+                                <ha-icon icon="mdi:dialpad"></ha-icon>
+                              </button>
+                            `
+                          : nothing}
+                      </div>
+                    `
+                  : nothing}
 
                 ${isHoldMenuOpen && key
                   ? html`
@@ -680,6 +1001,8 @@ export class GuardianAlertsCard extends LitElement {
 
                 <span class="bottom-ribbon" aria-hidden="true"></span>
               </div>
+
+              ${showKeypadButton && this.keypadOpen ? this.renderKeypadDropdown() : nothing}
             </div>
           `;
         })}
@@ -698,6 +1021,259 @@ export class GuardianAlertsCard extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 10px;
+      }
+
+      .banner-wrapper.keypad-open:hover,
+      .banner-wrapper.keypad-open:active {
+        transform: none;
+      }
+
+      .secure-right-controls {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .keypad-toggle-btn {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+        border-radius: 10px;
+        border: 1px solid color-mix(in srgb, var(--template-accent-color, #22c55e) 35%, transparent);
+        background: color-mix(in srgb, var(--template-accent-color, #22c55e) 16%, var(--base-surface));
+        color: var(--primary-text-color, #f8fafc);
+        cursor: pointer;
+        transition: transform 0.14s ease, background 0.16s ease, border-color 0.16s ease;
+      }
+
+      .keypad-toggle-btn ha-icon {
+        --mdc-icon-size: 20px;
+      }
+
+      .keypad-toggle-btn:hover {
+        background: color-mix(in srgb, var(--template-accent-color, #22c55e) 26%, var(--base-surface));
+        border-color: color-mix(in srgb, var(--template-accent-color, #22c55e) 60%, transparent);
+      }
+
+      .keypad-toggle-btn:active {
+        transform: scale(0.94);
+      }
+
+      .keypad-toggle-btn.active {
+        background: color-mix(in srgb, var(--template-accent-color, #22c55e) 32%, var(--base-surface));
+        border-color: var(--template-accent-color, #22c55e);
+      }
+
+      .keypad-dropdown {
+        margin-top: 6px;
+        padding: 14px;
+        border-radius: var(--ha-card-border-radius, 12px);
+        background: color-mix(in srgb, #22c55e 8%, var(--base-surface));
+        border: 1px solid color-mix(in srgb, #22c55e 28%, rgba(255, 255, 255, 0.12));
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        animation: keypadSlideDown 0.16s ease-out;
+      }
+
+      @keyframes keypadSlideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .keypad-status-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.22);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        min-height: 24px;
+      }
+
+      .keypad-code-display {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--primary-text-color, #f8fafc);
+        letter-spacing: 0.22em;
+      }
+
+      .keypad-code-display.error {
+        animation: keypadShake 0.28s ease;
+      }
+
+      @keyframes keypadShake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-4px);
+        }
+        75% {
+          transform: translateX(4px);
+        }
+      }
+
+      .keypad-placeholder {
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--secondary-text-color, #94a3b8);
+      }
+
+      .keypad-feedback {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+      }
+
+      .keypad-feedback.error {
+        color: var(--error-color, #f87171);
+      }
+
+      .keypad-feedback.success {
+        color: var(--success-color, #4ade80);
+      }
+
+      .keypad-feedback.arming {
+        color: var(--warning-color, #fbbf24);
+      }
+
+      .alarm-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        border-radius: 4px;
+        border: 1px solid transparent;
+      }
+
+      .alarm-status-badge.armed {
+        color: var(--warning-color, #fbbf24);
+        background: color-mix(in srgb, var(--warning-color, #f59e0b) 18%, var(--base-surface));
+        border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 42%, transparent);
+      }
+
+      .alarm-status-badge.disarmed {
+        color: var(--success-color, #4ade80);
+        background: color-mix(in srgb, var(--success-color, #22c55e) 16%, var(--base-surface));
+        border-color: color-mix(in srgb, var(--success-color, #22c55e) 38%, transparent);
+      }
+
+      .alarm-status-badge.arming {
+        color: var(--warning-color, #fbbf24);
+        background: color-mix(in srgb, var(--warning-color, #f59e0b) 20%, var(--base-surface));
+        border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 45%, transparent);
+      }
+
+      .keypad-entity-state {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--secondary-text-color, #cbd5e1);
+      }
+
+      .keypad-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .keypad-action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: filter 0.14s ease, transform 0.1s ease;
+      }
+
+      .keypad-action-btn ha-icon {
+        --mdc-icon-size: 18px;
+      }
+
+      .keypad-action-btn:hover {
+        filter: brightness(1.12);
+      }
+
+      .keypad-action-btn:active {
+        transform: scale(0.97);
+      }
+
+      .keypad-arm-btn {
+        background: color-mix(in srgb, var(--warning-color, #f59e0b) 22%, var(--base-surface));
+        color: var(--warning-color, #fbbf24);
+        border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 48%, transparent);
+      }
+
+      .keypad-disarm-btn {
+        background: color-mix(in srgb, var(--success-color, #22c55e) 22%, var(--base-surface));
+        color: var(--success-color, #4ade80);
+        border-color: color-mix(in srgb, var(--success-color, #22c55e) 48%, transparent);
+      }
+
+      .keypad-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .keypad-key {
+        height: 42px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--primary-text-color, #f8fafc);
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.12s ease, transform 0.1s ease;
+      }
+
+      .keypad-key:hover {
+        background: rgba(255, 255, 255, 0.13);
+      }
+
+      .keypad-key:active {
+        transform: scale(0.95);
+      }
+
+      .keypad-key-secondary {
+        font-size: 0.9rem;
+        color: var(--secondary-text-color, #cbd5e1);
+        background: rgba(255, 255, 255, 0.03);
       }
     `,
   ];

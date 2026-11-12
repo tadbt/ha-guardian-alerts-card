@@ -29,11 +29,11 @@ var e = globalThis, t = e.ShadowRoot && (e.ShadyCSS === void 0 || e.ShadyCSS.nat
 	let t = "";
 	for (let n of e.cssRules) t += n.cssText;
 	return a(t);
-})(e) : e, { is: l, defineProperty: u, getOwnPropertyDescriptor: d, getOwnPropertyNames: f, getOwnPropertySymbols: ee, getPrototypeOf: te } = Object, p = globalThis, m = p.trustedTypes, ne = m ? m.emptyScript : "", re = p.reactiveElementPolyfillSupport, h = (e, t) => e, g = {
+})(e) : e, { is: l, defineProperty: u, getOwnPropertyDescriptor: d, getOwnPropertyNames: f, getOwnPropertySymbols: p, getPrototypeOf: m } = Object, h = globalThis, g = h.trustedTypes, ee = g ? g.emptyScript : "", te = h.reactiveElementPolyfillSupport, _ = (e, t) => e, v = {
 	toAttribute(e, t) {
 		switch (t) {
 			case Boolean:
-				e = e ? ne : null;
+				e = e ? ee : null;
 				break;
 			case Object:
 			case Array: e = e == null ? e : JSON.stringify(e);
@@ -58,23 +58,23 @@ var e = globalThis, t = e.ShadowRoot && (e.ShadyCSS === void 0 || e.ShadyCSS.nat
 		}
 		return n;
 	}
-}, _ = (e, t) => !l(e, t), v = {
+}, y = (e, t) => !l(e, t), ne = {
 	attribute: !0,
 	type: String,
-	converter: g,
+	converter: v,
 	reflect: !1,
 	useDefault: !1,
-	hasChanged: _
+	hasChanged: y
 };
-Symbol.metadata ??= Symbol("metadata"), p.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
-var y = class extends HTMLElement {
+Symbol.metadata ??= Symbol("metadata"), h.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
+var b = class extends HTMLElement {
 	static addInitializer(e) {
 		this._$Ei(), (this.l ??= []).push(e);
 	}
 	static get observedAttributes() {
 		return this.finalize(), this._$Eh && [...this._$Eh.keys()];
 	}
-	static createProperty(e, t = v) {
+	static createProperty(e, t = ne) {
 		if (t.state && (t.attribute = !1), this._$Ei(), this.prototype.hasOwnProperty(e) && ((t = Object.create(t)).wrapped = !0), this.elementProperties.set(e, t), !t.noAccessor) {
 			let n = Symbol(), r = this.getPropertyDescriptor(e, n, t);
 			r !== void 0 && u(this.prototype, e, r);
@@ -100,17 +100,17 @@ var y = class extends HTMLElement {
 		};
 	}
 	static getPropertyOptions(e) {
-		return this.elementProperties.get(e) ?? v;
+		return this.elementProperties.get(e) ?? ne;
 	}
 	static _$Ei() {
-		if (this.hasOwnProperty(h("elementProperties"))) return;
-		let e = te(this);
+		if (this.hasOwnProperty(_("elementProperties"))) return;
+		let e = m(this);
 		e.finalize(), e.l !== void 0 && (this.l = [...e.l]), this.elementProperties = new Map(e.elementProperties);
 	}
 	static finalize() {
-		if (this.hasOwnProperty(h("finalized"))) return;
-		if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(h("properties"))) {
-			let e = this.properties, t = [...f(e), ...ee(e)];
+		if (this.hasOwnProperty(_("finalized"))) return;
+		if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(_("properties"))) {
+			let e = this.properties, t = [...f(e), ...p(e)];
 			for (let n of t) this.createProperty(n, e[n]);
 		}
 		let e = this[Symbol.metadata];
@@ -171,14 +171,14 @@ var y = class extends HTMLElement {
 	_$ET(e, t) {
 		let n = this.constructor.elementProperties.get(e), r = this.constructor._$Eu(e, n);
 		if (r !== void 0 && !0 === n.reflect) {
-			let i = (n.converter?.toAttribute === void 0 ? g : n.converter).toAttribute(t, n.type);
+			let i = (n.converter?.toAttribute === void 0 ? v : n.converter).toAttribute(t, n.type);
 			this._$Em = e, i == null ? this.removeAttribute(r) : this.setAttribute(r, i), this._$Em = null;
 		}
 	}
 	_$AK(e, t) {
 		let n = this.constructor, r = n._$Eh.get(e);
 		if (r !== void 0 && this._$Em !== r) {
-			let e = n.getPropertyOptions(r), i = typeof e.converter == "function" ? { fromAttribute: e.converter } : e.converter?.fromAttribute === void 0 ? g : e.converter;
+			let e = n.getPropertyOptions(r), i = typeof e.converter == "function" ? { fromAttribute: e.converter } : e.converter?.fromAttribute === void 0 ? v : e.converter;
 			this._$Em = r;
 			let a = i.fromAttribute(t, e.type);
 			this[r] = a ?? this._$Ej?.get(r) ?? a, this._$Em = null;
@@ -187,7 +187,7 @@ var y = class extends HTMLElement {
 	requestUpdate(e, t, n, r = !1, i) {
 		if (e !== void 0) {
 			let a = this.constructor;
-			if (!1 === r && (i = this[e]), n ??= a.getPropertyOptions(e), !((n.hasChanged ?? _)(i, t) || n.useDefault && n.reflect && i === this._$Ej?.get(e) && !this.hasAttribute(a._$Eu(e, n)))) return;
+			if (!1 === r && (i = this[e]), n ??= a.getPropertyOptions(e), !((n.hasChanged ?? y)(i, t) || n.useDefault && n.reflect && i === this._$Ej?.get(e) && !this.hasAttribute(a._$Eu(e, n)))) return;
 			this.C(e, t, n);
 		}
 		!1 === this.isUpdatePending && (this._$ES = this._$EP());
@@ -251,39 +251,39 @@ var y = class extends HTMLElement {
 	updated(e) {}
 	firstUpdated(e) {}
 };
-y.elementStyles = [], y.shadowRootOptions = { mode: "open" }, y[h("elementProperties")] = /* @__PURE__ */ new Map(), y[h("finalized")] = /* @__PURE__ */ new Map(), re?.({ ReactiveElement: y }), (p.reactiveElementVersions ??= []).push("2.1.2");
+b.elementStyles = [], b.shadowRootOptions = { mode: "open" }, b[_("elementProperties")] = /* @__PURE__ */ new Map(), b[_("finalized")] = /* @__PURE__ */ new Map(), te?.({ ReactiveElement: b }), (h.reactiveElementVersions ??= []).push("2.1.2");
 // node_modules/lit-html/lit-html.js
-var b = globalThis, ie = (e) => e, x = b.trustedTypes, ae = x ? x.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, oe = "$lit$", S = `lit$${Math.random().toFixed(9).slice(2)}$`, C = "?" + S, se = `<${C}>`, w = document, T = () => w.createComment(""), E = (e) => e === null || typeof e != "object" && typeof e != "function", D = Array.isArray, ce = (e) => D(e) || typeof e?.[Symbol.iterator] == "function", O = "[ 	\n\f\r]", k = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, le = /-->/g, ue = />/g, A = RegExp(`>|${O}(?:([^\\s"'>=/]+)(${O}*=${O}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`, "g"), de = /'/g, j = /"/g, M = /^(?:script|style|textarea|title)$/i, N = ((e) => (t, ...n) => ({
+var x = globalThis, S = (e) => e, C = x.trustedTypes, re = C ? C.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, ie = "$lit$", w = `lit$${Math.random().toFixed(9).slice(2)}$`, ae = "?" + w, oe = `<${ae}>`, T = document, E = () => T.createComment(""), D = (e) => e === null || typeof e != "object" && typeof e != "function", O = Array.isArray, se = (e) => O(e) || typeof e?.[Symbol.iterator] == "function", k = "[ 	\n\f\r]", A = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, j = /-->/g, M = />/g, N = RegExp(`>|${k}(?:([^\\s"'>=/]+)(${k}*=${k}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`, "g"), ce = /'/g, le = /"/g, ue = /^(?:script|style|textarea|title)$/i, P = ((e) => (t, ...n) => ({
 	_$litType$: e,
 	strings: t,
 	values: n
-}))(1), P = Symbol.for("lit-noChange"), F = Symbol.for("lit-nothing"), I = /* @__PURE__ */ new WeakMap(), L = w.createTreeWalker(w, 129);
-function R(e, t) {
-	if (!D(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
-	return ae === void 0 ? t : ae.createHTML(t);
+}))(1), F = Symbol.for("lit-noChange"), I = Symbol.for("lit-nothing"), L = /* @__PURE__ */ new WeakMap(), R = T.createTreeWalker(T, 129);
+function de(e, t) {
+	if (!O(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
+	return re === void 0 ? t : re.createHTML(t);
 }
 var fe = (e, t) => {
-	let n = e.length - 1, r = [], i, a = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", o = k;
+	let n = e.length - 1, r = [], i, a = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", o = A;
 	for (let t = 0; t < n; t++) {
 		let n = e[t], s, c, l = -1, u = 0;
-		for (; u < n.length && (o.lastIndex = u, c = o.exec(n), c !== null);) u = o.lastIndex, o === k ? c[1] === "!--" ? o = le : c[1] === void 0 ? c[2] === void 0 ? c[3] !== void 0 && (o = A) : (M.test(c[2]) && (i = RegExp("</" + c[2], "g")), o = A) : o = ue : o === A ? c[0] === ">" ? (o = i ?? k, l = -1) : c[1] === void 0 ? l = -2 : (l = o.lastIndex - c[2].length, s = c[1], o = c[3] === void 0 ? A : c[3] === "\"" ? j : de) : o === j || o === de ? o = A : o === le || o === ue ? o = k : (o = A, i = void 0);
-		let d = o === A && e[t + 1].startsWith("/>") ? " " : "";
-		a += o === k ? n + se : l >= 0 ? (r.push(s), n.slice(0, l) + oe + n.slice(l) + S + d) : n + S + (l === -2 ? t : d);
+		for (; u < n.length && (o.lastIndex = u, c = o.exec(n), c !== null);) u = o.lastIndex, o === A ? c[1] === "!--" ? o = j : c[1] === void 0 ? c[2] === void 0 ? c[3] !== void 0 && (o = N) : (ue.test(c[2]) && (i = RegExp("</" + c[2], "g")), o = N) : o = M : o === N ? c[0] === ">" ? (o = i ?? A, l = -1) : c[1] === void 0 ? l = -2 : (l = o.lastIndex - c[2].length, s = c[1], o = c[3] === void 0 ? N : c[3] === "\"" ? le : ce) : o === le || o === ce ? o = N : o === j || o === M ? o = A : (o = N, i = void 0);
+		let d = o === N && e[t + 1].startsWith("/>") ? " " : "";
+		a += o === A ? n + oe : l >= 0 ? (r.push(s), n.slice(0, l) + ie + n.slice(l) + w + d) : n + w + (l === -2 ? t : d);
 	}
-	return [R(e, a + (e[n] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), r];
+	return [de(e, a + (e[n] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), r];
 }, z = class e {
 	constructor({ strings: t, _$litType$: n }, r) {
 		let i;
 		this.parts = [];
 		let a = 0, o = 0, s = t.length - 1, c = this.parts, [l, u] = fe(t, n);
-		if (this.el = e.createElement(l, r), L.currentNode = this.el.content, n === 2 || n === 3) {
+		if (this.el = e.createElement(l, r), R.currentNode = this.el.content, n === 2 || n === 3) {
 			let e = this.el.content.firstChild;
 			e.replaceWith(...e.childNodes);
 		}
-		for (; (i = L.nextNode()) !== null && c.length < s;) {
+		for (; (i = R.nextNode()) !== null && c.length < s;) {
 			if (i.nodeType === 1) {
-				if (i.hasAttributes()) for (let e of i.getAttributeNames()) if (e.endsWith(oe)) {
-					let t = u[o++], n = i.getAttribute(e).split(S), r = /([.?@])?(.*)/.exec(t);
+				if (i.hasAttributes()) for (let e of i.getAttributeNames()) if (e.endsWith(ie)) {
+					let t = u[o++], n = i.getAttribute(e).split(w), r = /([.?@])?(.*)/.exec(t);
 					c.push({
 						type: 1,
 						index: a,
@@ -291,45 +291,45 @@ var fe = (e, t) => {
 						strings: n,
 						ctor: r[1] === "." ? me : r[1] === "?" ? he : r[1] === "@" ? ge : H
 					}), i.removeAttribute(e);
-				} else e.startsWith(S) && (c.push({
+				} else e.startsWith(w) && (c.push({
 					type: 6,
 					index: a
 				}), i.removeAttribute(e));
-				if (M.test(i.tagName)) {
-					let e = i.textContent.split(S), t = e.length - 1;
+				if (ue.test(i.tagName)) {
+					let e = i.textContent.split(w), t = e.length - 1;
 					if (t > 0) {
-						i.textContent = x ? x.emptyScript : "";
-						for (let n = 0; n < t; n++) i.append(e[n], T()), L.nextNode(), c.push({
+						i.textContent = C ? C.emptyScript : "";
+						for (let n = 0; n < t; n++) i.append(e[n], E()), R.nextNode(), c.push({
 							type: 2,
 							index: ++a
 						});
-						i.append(e[t], T());
+						i.append(e[t], E());
 					}
 				}
 			} else if (i.nodeType === 8) {
-				if (i.data === C) c.push({
+				if (i.data === ae) c.push({
 					type: 2,
 					index: a
 				});
 				else {
 					let e = -1;
-					for (; (e = i.data.indexOf(S, e + 1)) !== -1;) c.push({
+					for (; (e = i.data.indexOf(w, e + 1)) !== -1;) c.push({
 						type: 7,
 						index: a
-					}), e += S.length - 1;
+					}), e += w.length - 1;
 				}
 			}
 			a++;
 		}
 	}
 	static createElement(e, t) {
-		let n = w.createElement("template");
+		let n = T.createElement("template");
 		return n.innerHTML = e, n;
 	}
 };
 function B(e, t, n = e, r) {
-	if (t === P) return t;
-	let i = r === void 0 ? n._$Cl : n._$Co?.[r], a = E(t) ? void 0 : t._$litDirective$;
+	if (t === F) return t;
+	let i = r === void 0 ? n._$Cl : n._$Co?.[r], a = D(t) ? void 0 : t._$litDirective$;
 	return i?.constructor !== a && (i?._$AO?.(!1), a === void 0 ? i = void 0 : (i = new a(e), i._$AT(e, n, r)), r === void 0 ? n._$Cl = i : (n._$Co ??= [])[r] = i), i !== void 0 && (t = B(e, i._$AS(e, t.values), i, r)), t;
 }
 var pe = class {
@@ -343,17 +343,17 @@ var pe = class {
 		return this._$AM._$AU;
 	}
 	u(e) {
-		let { el: { content: t }, parts: n } = this._$AD, r = (e?.creationScope ?? w).importNode(t, !0);
-		L.currentNode = r;
-		let i = L.nextNode(), a = 0, o = 0, s = n[0];
+		let { el: { content: t }, parts: n } = this._$AD, r = (e?.creationScope ?? T).importNode(t, !0);
+		R.currentNode = r;
+		let i = R.nextNode(), a = 0, o = 0, s = n[0];
 		for (; s !== void 0;) {
 			if (a === s.index) {
 				let t;
 				s.type === 2 ? t = new V(i, i.nextSibling, this, e) : s.type === 1 ? t = new s.ctor(i, s.name, s.strings, this, e) : s.type === 6 && (t = new _e(i, this, e)), this._$AV.push(t), s = n[++o];
 			}
-			a !== s?.index && (i = L.nextNode(), a++);
+			a !== s?.index && (i = R.nextNode(), a++);
 		}
-		return L.currentNode = w, r;
+		return R.currentNode = T, r;
 	}
 	p(e) {
 		let t = 0;
@@ -364,7 +364,7 @@ var pe = class {
 		return this._$AM?._$AU ?? this._$Cv;
 	}
 	constructor(e, t, n, r) {
-		this.type = 2, this._$AH = F, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = n, this.options = r, this._$Cv = r?.isConnected ?? !0;
+		this.type = 2, this._$AH = I, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = n, this.options = r, this._$Cv = r?.isConnected ?? !0;
 	}
 	get parentNode() {
 		let e = this._$AA.parentNode, t = this._$AM;
@@ -377,7 +377,7 @@ var pe = class {
 		return this._$AB;
 	}
 	_$AI(e, t = this) {
-		e = B(this, e, t), E(e) ? e === F || e == null || e === "" ? (this._$AH !== F && this._$AR(), this._$AH = F) : e !== this._$AH && e !== P && this._(e) : e._$litType$ === void 0 ? e.nodeType === void 0 ? ce(e) ? this.k(e) : this._(e) : this.T(e) : this.$(e);
+		e = B(this, e, t), D(e) ? e === I || e == null || e === "" ? (this._$AH !== I && this._$AR(), this._$AH = I) : e !== this._$AH && e !== F && this._(e) : e._$litType$ === void 0 ? e.nodeType === void 0 ? se(e) ? this.k(e) : this._(e) : this.T(e) : this.$(e);
 	}
 	O(e) {
 		return this._$AA.parentNode.insertBefore(e, this._$AB);
@@ -386,10 +386,10 @@ var pe = class {
 		this._$AH !== e && (this._$AR(), this._$AH = this.O(e));
 	}
 	_(e) {
-		this._$AH !== F && E(this._$AH) ? this._$AA.nextSibling.data = e : this.T(w.createTextNode(e)), this._$AH = e;
+		this._$AH !== I && D(this._$AH) ? this._$AA.nextSibling.data = e : this.T(T.createTextNode(e)), this._$AH = e;
 	}
 	$(e) {
-		let { values: t, _$litType$: n } = e, r = typeof n == "number" ? this._$AC(e) : (n.el === void 0 && (n.el = z.createElement(R(n.h, n.h[0]), this.options)), n);
+		let { values: t, _$litType$: n } = e, r = typeof n == "number" ? this._$AC(e) : (n.el === void 0 && (n.el = z.createElement(de(n.h, n.h[0]), this.options)), n);
 		if (this._$AH?._$AD === r) this._$AH.p(t);
 		else {
 			let e = new pe(r, this), n = e.u(this.options);
@@ -397,19 +397,19 @@ var pe = class {
 		}
 	}
 	_$AC(e) {
-		let t = I.get(e.strings);
-		return t === void 0 && I.set(e.strings, t = new z(e)), t;
+		let t = L.get(e.strings);
+		return t === void 0 && L.set(e.strings, t = new z(e)), t;
 	}
 	k(t) {
-		D(this._$AH) || (this._$AH = [], this._$AR());
+		O(this._$AH) || (this._$AH = [], this._$AR());
 		let n = this._$AH, r, i = 0;
-		for (let a of t) i === n.length ? n.push(r = new e(this.O(T()), this.O(T()), this, this.options)) : r = n[i], r._$AI(a), i++;
+		for (let a of t) i === n.length ? n.push(r = new e(this.O(E()), this.O(E()), this, this.options)) : r = n[i], r._$AI(a), i++;
 		i < n.length && (this._$AR(r && r._$AB.nextSibling, i), n.length = i);
 	}
 	_$AR(e = this._$AA.nextSibling, t) {
 		for (this._$AP?.(!1, !0, t); e !== this._$AB;) {
-			let t = ie(e).nextSibling;
-			ie(e).remove(), e = t;
+			let t = S(e).nextSibling;
+			S(e).remove(), e = t;
 		}
 	}
 	setConnected(e) {
@@ -423,41 +423,41 @@ var pe = class {
 		return this._$AM._$AU;
 	}
 	constructor(e, t, n, r, i) {
-		this.type = 1, this._$AH = F, this._$AN = void 0, this.element = e, this.name = t, this._$AM = r, this.options = i, n.length > 2 || n[0] !== "" || n[1] !== "" ? (this._$AH = Array(n.length - 1).fill(/* @__PURE__ */ new String()), this.strings = n) : this._$AH = F;
+		this.type = 1, this._$AH = I, this._$AN = void 0, this.element = e, this.name = t, this._$AM = r, this.options = i, n.length > 2 || n[0] !== "" || n[1] !== "" ? (this._$AH = Array(n.length - 1).fill(/* @__PURE__ */ new String()), this.strings = n) : this._$AH = I;
 	}
 	_$AI(e, t = this, n, r) {
 		let i = this.strings, a = !1;
-		if (i === void 0) e = B(this, e, t, 0), a = !E(e) || e !== this._$AH && e !== P, a && (this._$AH = e);
+		if (i === void 0) e = B(this, e, t, 0), a = !D(e) || e !== this._$AH && e !== F, a && (this._$AH = e);
 		else {
 			let r = e, o, s;
-			for (e = i[0], o = 0; o < i.length - 1; o++) s = B(this, r[n + o], t, o), s === P && (s = this._$AH[o]), a ||= !E(s) || s !== this._$AH[o], s === F ? e = F : e !== F && (e += (s ?? "") + i[o + 1]), this._$AH[o] = s;
+			for (e = i[0], o = 0; o < i.length - 1; o++) s = B(this, r[n + o], t, o), s === F && (s = this._$AH[o]), a ||= !D(s) || s !== this._$AH[o], s === I ? e = I : e !== I && (e += (s ?? "") + i[o + 1]), this._$AH[o] = s;
 		}
 		a && !r && this.j(e);
 	}
 	j(e) {
-		e === F ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
+		e === I ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
 	}
 }, me = class extends H {
 	constructor() {
 		super(...arguments), this.type = 3;
 	}
 	j(e) {
-		this.element[this.name] = e === F ? void 0 : e;
+		this.element[this.name] = e === I ? void 0 : e;
 	}
 }, he = class extends H {
 	constructor() {
 		super(...arguments), this.type = 4;
 	}
 	j(e) {
-		this.element.toggleAttribute(this.name, !!e && e !== F);
+		this.element.toggleAttribute(this.name, !!e && e !== I);
 	}
 }, ge = class extends H {
 	constructor(e, t, n, r, i) {
 		super(e, t, n, r, i), this.type = 5;
 	}
 	_$AI(e, t = this) {
-		if ((e = B(this, e, t, 0) ?? F) === P) return;
-		let n = this._$AH, r = e === F && n !== F || e.capture !== n.capture || e.once !== n.once || e.passive !== n.passive, i = e !== F && (n === F || r);
+		if ((e = B(this, e, t, 0) ?? I) === F) return;
+		let n = this._$AH, r = e === I && n !== I || e.capture !== n.capture || e.once !== n.once || e.passive !== n.passive, i = e !== I && (n === I || r);
 		r && this.element.removeEventListener(this.name, this, n), i && this.element.addEventListener(this.name, this, e), this._$AH = e;
 	}
 	handleEvent(e) {
@@ -473,16 +473,16 @@ var pe = class {
 	_$AI(e) {
 		B(this, e);
 	}
-}, ve = b.litHtmlPolyfillSupport;
-ve?.(z, V), (b.litHtmlVersions ??= []).push("3.3.3");
+}, ve = x.litHtmlPolyfillSupport;
+ve?.(z, V), (x.litHtmlVersions ??= []).push("3.3.3");
 var ye = (e, t, n) => {
 	let r = n?.renderBefore ?? t, i = r._$litPart$;
 	if (i === void 0) {
 		let e = n?.renderBefore ?? null;
-		r._$litPart$ = i = new V(t.insertBefore(T(), e), e, void 0, n ?? {});
+		r._$litPart$ = i = new V(t.insertBefore(E(), e), e, void 0, n ?? {});
 	}
 	return i._$AI(e), i;
-}, U = globalThis, W = class extends y {
+}, U = globalThis, W = class extends b {
 	constructor() {
 		super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
 	}
@@ -501,7 +501,7 @@ var ye = (e, t, n) => {
 		super.disconnectedCallback(), this._$Do?.setConnected(!1);
 	}
 	render() {
-		return P;
+		return F;
 	}
 };
 W._$litElement$ = !0, W.finalized = !0, U.litElementHydrateSupport?.({ LitElement: W });
@@ -515,9 +515,9 @@ var xe = (e) => (t, n) => {
 }, Se = {
 	attribute: !0,
 	type: String,
-	converter: g,
+	converter: v,
 	reflect: !1,
-	hasChanged: _
+	hasChanged: y
 }, Ce = (e = Se, t, n) => {
 	let { kind: r, metadata: i } = n, a = globalThis.litPropertyMetadata.get(i);
 	if (a === void 0 && globalThis.litPropertyMetadata.set(i, a = /* @__PURE__ */ new Map()), r === "setter" && ((e = Object.create(e)).wrapped = !0), a.set(n.name, e), r === "accessor") {
@@ -1178,7 +1178,7 @@ var Me = {
 	]
 }, Q = class extends W {
 	constructor(...e) {
-		super(...e), this.expandedRuleIndex = 0, this.defaultSchemaCache = /* @__PURE__ */ new Map(), this.ruleSchemaCache = /* @__PURE__ */ new Map(), this.computeLabel = (e) => e.label || e.name, this.computeHelper = (e) => e.helper || "";
+		super(...e), this.expandedRuleIndex = 0, this.revealPasscodes = !1, this.defaultSchemaCache = /* @__PURE__ */ new Map(), this.ruleSchemaCache = /* @__PURE__ */ new Map(), this.computeLabel = (e) => e.label || e.name, this.computeHelper = (e) => e.helper || "";
 	}
 	connectedCallback() {
 		super.connectedCallback(), this.ensureHaComponentsLoaded();
@@ -1328,15 +1328,15 @@ var Me = {
 		]) i(e);
 		return r;
 	}
-	getDefaultAlertSchema(e) {
-		let t = this.defaultSchemaCache.get(e);
-		if (t) return t;
-		let n = [{
+	getDefaultAlertSchema(e, t) {
+		let n = `${e}:${t}`, r = this.defaultSchemaCache.get(n);
+		if (r) return r;
+		let i = [{
 			name: "show_default_alert",
 			label: "Show \"All Secured\" banner when no alerts are active",
 			selector: { boolean: {} }
 		}];
-		return e && n.push({
+		return e && (i.push({
 			name: "message",
 			label: "Default Secured Message",
 			selector: { text: {} }
@@ -1355,7 +1355,35 @@ var Me = {
 			name: "entity",
 			label: "Optional Entity (for Tap More-Info)",
 			selector: { entity: {} }
-		}), this.defaultSchemaCache.set(e, n), n;
+		}, {
+			name: "keypad_enabled",
+			label: "Show Keypad Button on Secure Card",
+			selector: { boolean: {} }
+		}), t && i.push({
+			name: "keypad_entity",
+			label: "Arm / Disarm Target Entity",
+			helper: "Entity updated on Arm/Disarm (e.g. input_text, input_select, input_boolean, alarm_control_panel)",
+			selector: { entity: {} }
+		}, {
+			name: "keypad_arm_value",
+			label: "Arm Value (default: armed)",
+			selector: { text: {} }
+		}, {
+			name: "keypad_disarm_value",
+			label: "Disarm Value (default: disarmed)",
+			selector: { text: {} }
+		}, {
+			name: "keypad_arm_delay",
+			label: "Arm Delay (seconds)",
+			helper: "Optional countdown in seconds before arming (0 = immediate)",
+			selector: { number: {
+				min: 0,
+				max: 300,
+				step: 1,
+				mode: "box",
+				unit_of_measurement: "s"
+			} }
+		})), this.defaultSchemaCache.set(n, i), i;
 	}
 	getRuleSchema(e, t, n, r) {
 		let i = e.join(","), a = this.getStateOptionsForEntities(e, n), o = a.map((e) => e.value).join("|"), s = `${i}::${t}::${r || ""}::${o}`, c = this.ruleSchemaCache.get(s);
@@ -1437,18 +1465,54 @@ var Me = {
 		if (e.stopPropagation(), !this.config) return;
 		let t = e.detail?.value;
 		if (!t) return;
-		let n = t.show_default_alert !== !1, r = {
+		let n = t.show_default_alert !== !1, r = this.config.default_alert?.keypad || {}, i = {
+			...r,
+			enabled: t.keypad_enabled !== !1,
+			arm_value: t.keypad_arm_value ?? r.arm_value ?? "armed",
+			disarm_value: t.keypad_disarm_value ?? r.disarm_value ?? "disarmed",
+			arm_delay: Math.max(0, Math.floor(Number(t.keypad_arm_delay ?? r.arm_delay ?? 0)))
+		};
+		t.keypad_entity && String(t.keypad_entity).trim() !== "" ? i.entity = String(t.keypad_entity).trim() : delete i.entity;
+		let a = {
 			...this.config.default_alert || {},
 			template: t.template || "SECURE",
 			message: t.message ?? "All Secured",
-			icon: t.icon || "mdi:shield-check"
+			icon: t.icon || "mdi:shield-check",
+			keypad: i
 		};
-		t.entity && t.entity.trim() !== "" ? r.entity = t.entity.trim() : delete r.entity, this.emitConfigChanged({
+		t.entity && t.entity.trim() !== "" ? a.entity = t.entity.trim() : delete a.entity, this.emitConfigChanged({
 			...this.config,
 			type: this.config.type || "custom:guardian-alerts-card",
 			show_default_alert: n,
-			default_alert: r
+			default_alert: a
 		});
+	}
+	updateKeypadPasscodes(e) {
+		if (!this.config) return;
+		let t = this.config.default_alert || {}, n = t.keypad || {};
+		this.emitConfigChanged({
+			...this.config,
+			type: this.config.type || "custom:guardian-alerts-card",
+			default_alert: {
+				...t,
+				keypad: {
+					...n,
+					passcodes: e
+				}
+			}
+		});
+	}
+	addPasscode() {
+		let e = this.config?.default_alert?.keypad?.passcodes || [];
+		this.updateKeypadPasscodes([...e, ""]);
+	}
+	updatePasscode(e, t) {
+		let n = t.replace(/\D/g, "").slice(0, 4), r = [...this.config?.default_alert?.keypad?.passcodes || []];
+		r[e] = n, this.updateKeypadPasscodes(r);
+	}
+	removePasscode(e) {
+		let t = this.config?.default_alert?.keypad?.passcodes || [];
+		this.updateKeypadPasscodes(t.filter((t, n) => n !== e));
 	}
 	onRuleFormChanged(e, t) {
 		if (t.stopPropagation(), !this.config) return;
@@ -1509,15 +1573,20 @@ var Me = {
 		});
 	}
 	render() {
-		if (!this.config) return F;
-		let e = this.config.show_default_alert !== !1, t = this.expandedRuleIndex === -1, n = {
+		if (!this.config) return I;
+		let e = this.config.show_default_alert !== !1, t = this.config.default_alert?.keypad, n = t?.enabled !== !1, r = t?.passcodes || [], i = this.expandedRuleIndex === -1, a = {
 			show_default_alert: e,
 			message: this.config.default_alert?.message ?? "All Secured",
 			template: (this.config.default_alert?.template || "SECURE").toUpperCase(),
 			icon: this.config.default_alert?.icon || "mdi:shield-check",
-			entity: this.config.default_alert?.entity || ""
+			entity: this.config.default_alert?.entity || "",
+			keypad_enabled: n,
+			keypad_entity: t?.entity || "",
+			keypad_arm_value: t?.arm_value ?? "armed",
+			keypad_disarm_value: t?.disarm_value ?? "disarmed",
+			keypad_arm_delay: Math.max(0, Math.floor(Number(t?.arm_delay ?? 0)))
 		};
-		return N`
+		return P`
       <div class="editor-container">
         <!-- Default "All Secured" Rule Card (Collapsible) -->
         <div class="rule-card secure-card">
@@ -1528,32 +1597,91 @@ var Me = {
             <div class="rule-header-left">
               <span class="priority-pill priority-secure">DEFAULT</span>
               <span class="rule-title">
-                🛡️ ${n.message || "All Secured"} (${e ? "Enabled" : "Disabled"})
+                🛡️ ${a.message || "All Secured"} (${e ? "Enabled" : "Disabled"})
               </span>
             </div>
             <div class="rule-header-actions">
               <button
                 type="button"
                 class="btn-collapse"
-                title=${t ? "Collapse" : "Expand"}
+                title=${i ? "Collapse" : "Expand"}
               >
-                <span class="chevron ${t ? "open" : ""}">▼</span>
+                <span class="chevron ${i ? "open" : ""}">▼</span>
               </button>
             </div>
           </div>
 
-          ${t ? N`
+          ${i ? P`
                 <div class="rule-body">
                   <ha-form
                     .hass=${this.hass}
-                    .data=${n}
-                    .schema=${this.getDefaultAlertSchema(e)}
+                    .data=${a}
+                    .schema=${this.getDefaultAlertSchema(e, n)}
                     .computeLabel=${this.computeLabel}
                     .computeHelper=${this.computeHelper}
                     @value-changed=${(e) => this.onDefaultAlertFormChanged(e)}
                   ></ha-form>
+
+                  ${e && n ? P`
+                        <div class="passcodes-section">
+                          <div class="passcodes-header">
+                            <div class="passcodes-title-group">
+                              <span class="passcodes-title">Keypad Passcodes</span>
+                              <span class="passcodes-hint">
+                                Numbers only, max 4 digits. Leave empty to allow Arm/Disarm without a code.
+                              </span>
+                            </div>
+                            <div class="passcodes-header-actions">
+                              <button
+                                type="button"
+                                class="btn-secondary-sm"
+                                @click=${() => this.revealPasscodes = !this.revealPasscodes}
+                              >
+                                ${this.revealPasscodes ? "Hide" : "Show"}
+                              </button>
+                              <button
+                                type="button"
+                                class="btn-secondary-sm"
+                                @click=${() => this.addPasscode()}
+                              >
+                                + Add Passcode
+                              </button>
+                            </div>
+                          </div>
+
+                          ${r.length > 0 ? P`
+                                <div class="passcodes-list">
+                                  ${r.map((e, t) => P`
+                                      <div class="passcode-row">
+                                        <input
+                                          class="passcode-input"
+                                          type=${this.revealPasscodes ? "text" : "password"}
+                                          inputmode="numeric"
+                                          pattern="[0-9]*"
+                                          maxlength="4"
+                                          placeholder="4-digit PIN #${t + 1}"
+                                          .value=${e}
+                                          @input=${(e) => {
+			let n = e.target, r = n.value.replace(/\D/g, "").slice(0, 4);
+			n.value !== r && (n.value = r), this.updatePasscode(t, r);
+		}}
+                                        />
+                                        <button
+                                          type="button"
+                                          class="btn-danger-sm"
+                                          title="Remove passcode"
+                                          @click=${() => this.removePasscode(t)}
+                                        >
+                                          Remove
+                                        </button>
+                                      </div>
+                                    `)}
+                                </div>
+                              ` : I}
+                        </div>
+                      ` : I}
                 </div>
-              ` : F}
+              ` : I}
         </div>
 
         <!-- Collapsible Alert Rules List (Only 1 open at a time) -->
@@ -1568,8 +1696,8 @@ var Me = {
 				chime: s,
 				icon: e.icon || "",
 				message: e.message || ""
-			}, ee = a.length === 0 ? "No entity selected" : a.length === 1 ? a[0] : `${a[0]} +${a.length - 1} more`;
-			return N`
+			}, p = a.length === 0 ? "No entity selected" : a.length === 1 ? a[0] : `${a[0]} +${a.length - 1} more`;
+			return P`
             <div class="rule-card ${n ? "expanded" : "collapsed"}">
               <div
                 class="rule-header clickable"
@@ -1582,7 +1710,7 @@ var Me = {
                       ${e.message || `Alert Rule #${t + 1}`} (${i.name})
                     </span>
                     <span class="rule-subtitle">
-                      ${ee}
+                      ${p}
                       ${o.length > 0 ? ` · [${o.join(", ")}]` : ""}
                       ${s === "none" ? "" : ` · 🔔 ${s}`}
                     </span>
@@ -1607,7 +1735,7 @@ var Me = {
                 </div>
               </div>
 
-              ${n ? N`
+              ${n ? P`
                     <div class="rule-body">
                       <ha-form
                         .hass=${this.hass}
@@ -1618,7 +1746,7 @@ var Me = {
                         @value-changed=${(e) => this.onRuleFormChanged(t, e)}
                       ></ha-form>
                     </div>
-                  ` : F}
+                  ` : I}
             </div>
           `;
 		})}
@@ -1802,10 +1930,82 @@ var Me = {
       color: #f87171;
       padding: 4px 10px;
     }
+
+    .btn-secondary-sm {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--primary-text-color, #f3f4f6);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 4px 10px;
+    }
+
+    .passcodes-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .passcodes-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .passcodes-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .passcodes-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--primary-text-color, #f3f4f6);
+    }
+
+    .passcodes-hint {
+      font-size: 0.74rem;
+      color: var(--secondary-text-color, #94a3b8);
+    }
+
+    .passcodes-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .passcodes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .passcode-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .passcode-input {
+      flex: 1;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--primary-text-color, #f3f4f6);
+      font-size: 0.85rem;
+    }
   `;
 	}
 };
-Z([G({ attribute: !1 })], Q.prototype, "hass", void 0), Z([K()], Q.prototype, "config", void 0), Z([K()], Q.prototype, "expandedRuleIndex", void 0), Q = Z([xe("guardian-alerts-card-editor")], Q);
+Z([G({ attribute: !1 })], Q.prototype, "hass", void 0), Z([K()], Q.prototype, "config", void 0), Z([K()], Q.prototype, "expandedRuleIndex", void 0), Z([K()], Q.prototype, "revealPasscodes", void 0), Q = Z([xe("guardian-alerts-card-editor")], Q);
 // src/guardian-alerts-card.ts
 var Re = {
 	P1: 1,
@@ -1821,7 +2021,7 @@ window.customCards = window.customCards || [], window.customCards.some((e) => e.
 });
 var $ = class extends W {
 	constructor(...e) {
-		super(...e), this.holdMenuKey = null, this.isHolding = !1, this.activeEntryKeys = /* @__PURE__ */ new Set(), this.matchedSinceMap = /* @__PURE__ */ new Map(), this.durationTimers = /* @__PURE__ */ new Map(), this.dismissedEntryKeys = /* @__PURE__ */ new Set(), this.snoozedUntilMap = /* @__PURE__ */ new Map(), this.snoozeTimers = /* @__PURE__ */ new Map(), this.hasInitializedStates = !1, this.handleVisibilityOrFocus = () => {
+		super(...e), this.holdMenuKey = null, this.keypadOpen = !1, this.keypadCode = "", this.keypadFeedback = null, this.armDelayRemaining = 0, this.isHolding = !1, this.activeEntryKeys = /* @__PURE__ */ new Set(), this.matchedSinceMap = /* @__PURE__ */ new Map(), this.durationTimers = /* @__PURE__ */ new Map(), this.dismissedEntryKeys = /* @__PURE__ */ new Set(), this.snoozedUntilMap = /* @__PURE__ */ new Map(), this.snoozeTimers = /* @__PURE__ */ new Map(), this.hasInitializedStates = !1, this.handleVisibilityOrFocus = () => {
 			document.visibilityState !== "hidden" && (this.evaluateRules(), this.requestUpdate());
 		};
 	}
@@ -1834,7 +2034,7 @@ var $ = class extends W {
 		super.disconnectedCallback(), this.relativeTimeInterval !== void 0 && (window.clearInterval(this.relativeTimeInterval), this.relativeTimeInterval = void 0), document.removeEventListener("visibilitychange", this.handleVisibilityOrFocus), window.removeEventListener("focus", this.handleVisibilityOrFocus), this.clearAllTimers();
 	}
 	clearAllTimers() {
-		window.clearTimeout(this.holdTimeout);
+		window.clearTimeout(this.holdTimeout), window.clearTimeout(this.keypadFeedbackTimer), window.clearInterval(this.armDelayInterval), this.armDelayInterval = void 0;
 		for (let e of this.durationTimers.values()) window.clearTimeout(e);
 		this.durationTimers.clear();
 		for (let e of this.snoozeTimers.values()) window.clearTimeout(e);
@@ -1873,7 +2073,7 @@ var $ = class extends W {
 		this.clearAllTimers(), this.config = {
 			...e,
 			alerts: Array.isArray(e.alerts) ? e.alerts : []
-		}, this.holdMenuKey = null, this.activeEntryKeys.clear(), this.matchedSinceMap.clear(), this.dismissedEntryKeys.clear(), this.snoozedUntilMap.clear(), this.hasInitializedStates = !1;
+		}, this.holdMenuKey = null, this.keypadOpen = !1, this.keypadCode = "", this.keypadFeedback = null, this.armDelayRemaining = 0, this.activeEntryKeys.clear(), this.matchedSinceMap.clear(), this.dismissedEntryKeys.clear(), this.snoozedUntilMap.clear(), this.hasInitializedStates = !1;
 	}
 	getMonitoredEntities(e) {
 		if (Array.isArray(e.entities)) {
@@ -2064,8 +2264,172 @@ var $ = class extends W {
 	handleCancelHoldMenu(e) {
 		e.stopPropagation(), this.holdMenuKey = null;
 	}
+	toggleKeypad(e) {
+		e.stopPropagation(), this.keypadOpen = !this.keypadOpen, this.keypadOpen || (this.keypadCode = "", this.keypadFeedback = null);
+	}
+	appendKeypadDigit(e) {
+		!/^\d$/.test(e) || this.keypadCode.length >= 4 || (this.keypadFeedback?.type === "error" && (this.keypadFeedback = null), this.keypadCode = `${this.keypadCode}${e}`);
+	}
+	backspaceKeypad() {
+		this.keypadCode.length > 0 && (this.keypadCode = this.keypadCode.slice(0, -1));
+	}
+	clearKeypadCode() {
+		this.keypadCode = "", this.keypadFeedback = null;
+	}
+	setKeypadFeedback(e, t) {
+		window.clearTimeout(this.keypadFeedbackTimer), this.keypadFeedback = {
+			type: e,
+			text: t
+		}, this.keypadFeedbackTimer = window.setTimeout(() => {
+			this.keypadFeedback = null;
+		}, 2800);
+	}
+	cancelArmDelay(e) {
+		this.armDelayInterval !== void 0 && (window.clearInterval(this.armDelayInterval), this.armDelayInterval = void 0), this.armDelayRemaining = 0, e && this.setKeypadFeedback("success", e);
+	}
+	async handleKeypadAction(e) {
+		let t = this.config?.default_alert?.keypad;
+		if (e === "disarm") {
+			let e = (t?.passcodes || []).map((e) => String(e).replace(/\D/g, "").slice(0, 4)).filter((e) => e.length > 0);
+			if (e.length > 0 && !e.includes(this.keypadCode)) {
+				this.keypadCode = "", this.setKeypadFeedback("error", "Invalid passcode");
+				return;
+			}
+			this.armDelayRemaining > 0 && this.cancelArmDelay();
+		}
+		let n = t?.entity?.trim();
+		if (!n) this.keypadCode = "", this.setKeypadFeedback("error", "Set target entity in card settings");
+		else {
+			if (e === "arm") {
+				if (this.armDelayRemaining > 0) {
+					this.cancelArmDelay("Arming cancelled");
+					return;
+				}
+				let e = Math.max(0, Math.floor(Number(t?.arm_delay || 0)));
+				if (e > 0) {
+					this.keypadCode = "", this.keypadFeedback = null, this.armDelayRemaining = e, this.armDelayInterval = window.setInterval(() => {
+						this.armDelayRemaining <= 1 ? (this.cancelArmDelay(), this.executeKeypadService("arm", n, "")) : --this.armDelayRemaining;
+					}, 1e3);
+					return;
+				}
+			}
+			await this.executeKeypadService(e, n, this.keypadCode);
+		}
+	}
+	async executeKeypadService(e, t, n) {
+		let r = this.config?.default_alert?.keypad, i = r?.arm_value?.trim() || "armed", a = r?.disarm_value?.trim() || "disarmed", o = e === "arm" ? i : a, s = t.split(".")[0];
+		try {
+			s === "input_text" || s === "text" ? await this.hass.callService(s, "set_value", {
+				entity_id: t,
+				value: o
+			}) : s === "input_select" || s === "select" ? await this.hass.callService(s, "select_option", {
+				entity_id: t,
+				option: o
+			}) : s === "input_boolean" || s === "switch" || s === "light" ? await this.hass.callService(s, e === "arm" ? "turn_on" : "turn_off", { entity_id: t }) : s === "lock" ? await this.hass.callService("lock", e === "arm" ? "lock" : "unlock", { entity_id: t }) : s === "alarm_control_panel" ? await this.hass.callService("alarm_control_panel", e === "arm" ? "alarm_arm_away" : "alarm_disarm", {
+				entity_id: t,
+				...n ? { code: n } : {}
+			}) : await this.hass.callService(s, "set_value", {
+				entity_id: t,
+				value: o
+			}), this.keypadCode = "", this.setKeypadFeedback("success", e === "arm" ? `Armed (${o})` : `Disarmed (${o})`);
+		} catch {
+			this.setKeypadFeedback("error", "Failed to update entity");
+		}
+	}
+	renderKeypadDropdown() {
+		let e = this.config?.default_alert?.keypad, t = e?.entity?.trim(), n = t ? this.hass?.states?.[t]?.state : void 0, r = (e?.passcodes || []).some((e) => String(e).trim().length > 0), i = "•".repeat(this.keypadCode.length);
+		return P`
+      <div
+        class="keypad-dropdown"
+        @pointerdown=${(e) => e.stopPropagation()}
+        @pointerup=${(e) => e.stopPropagation()}
+        @click=${(e) => e.stopPropagation()}
+      >
+        <div class="keypad-status-bar">
+          <div class="keypad-code-display ${this.keypadFeedback?.type === "error" ? "error" : ""}">
+            ${this.keypadCode.length > 0 ? P`<span class="keypad-dots">${i}</span>` : P`<span class="keypad-placeholder">
+                  ${r ? "Enter code to disarm" : "No passcode required"}
+                </span>`}
+          </div>
+          ${this.armDelayRemaining > 0 ? P`
+                <span class="keypad-feedback arming">
+                  Arming in ${this.armDelayRemaining}s
+                </span>
+              ` : this.keypadFeedback ? P`
+                  <span class="keypad-feedback ${this.keypadFeedback.type}">
+                    ${this.keypadFeedback.text}
+                  </span>
+                ` : n === void 0 ? I : P`<span class="keypad-entity-state">${n}</span>`}
+        </div>
+
+        <div class="keypad-actions">
+          <button
+            type="button"
+            class="keypad-action-btn keypad-arm-btn"
+            @click=${() => void this.handleKeypadAction("arm")}
+          >
+            <ha-icon icon="mdi:shield-lock"></ha-icon>
+            <span>${this.armDelayRemaining > 0 ? `Cancel (${this.armDelayRemaining}s)` : "Arm"}</span>
+          </button>
+          <button
+            type="button"
+            class="keypad-action-btn keypad-disarm-btn"
+            @click=${() => void this.handleKeypadAction("disarm")}
+          >
+            <ha-icon icon="mdi:shield-off"></ha-icon>
+            <span>Disarm</span>
+          </button>
+        </div>
+
+        <div class="keypad-grid">
+          ${[
+			"1",
+			"2",
+			"3",
+			"4",
+			"5",
+			"6",
+			"7",
+			"8",
+			"9"
+		].map((e) => P`
+              <button
+                type="button"
+                class="keypad-key"
+                @click=${() => this.appendKeypadDigit(e)}
+              >
+                ${e}
+              </button>
+            `)}
+          <button
+            type="button"
+            class="keypad-key keypad-key-secondary"
+            title="Clear"
+            @click=${() => this.clearKeypadCode()}
+          >
+            ✕
+          </button>
+          <button
+            type="button"
+            class="keypad-key"
+            @click=${() => this.appendKeypadDigit("0")}
+          >
+            0
+          </button>
+          <button
+            type="button"
+            class="keypad-key keypad-key-secondary"
+            title="Backspace"
+            @click=${() => this.backspaceKeypad()}
+          >
+            ⌫
+          </button>
+        </div>
+      </div>
+    `;
+	}
 	render() {
-		if (!this.hass || !this.config) return F;
+		if (!this.hass || !this.config) return I;
 		let e = [];
 		(this.config.alerts || []).forEach((t, n) => {
 			let r = this.getMonitoredEntities(t);
@@ -2084,7 +2448,7 @@ var $ = class extends W {
 		});
 		let t = e;
 		if (t.length === 0) {
-			if (this.config.show_default_alert === !1) return F;
+			if (this.config.show_default_alert === !1) return I;
 			let e = this.config.default_alert;
 			t = [{
 				index: null,
@@ -2100,12 +2464,12 @@ var $ = class extends W {
 				}
 			}];
 		}
-		return N`
+		return P`
       <div class="card-container">
         ${t.map(({ rule: e, index: t, entityId: n, key: r }) => {
-			let i = q(e.template || e.severity), a = e.icon?.trim() || i.defaultIcon, o = t === null ? null : (e.priority || "P2").toUpperCase(), s = o ? `${o} · ${i.name}` : i.name, c = t === null ? null : this.formatLastChanged(n), l = r !== null && this.holdMenuKey === r;
-			return N`
-            <div class="banner-wrapper">
+			let i = q(e.template || e.severity), a = e.icon?.trim() || i.defaultIcon, o = t === null ? null : (e.priority || "P2").toUpperCase(), s = o ? `${o} · ${i.name}` : i.name, c = t === null ? null : this.formatLastChanged(n), l = r !== null && this.holdMenuKey === r, u = t === null, d = this.config.default_alert?.keypad, f = u && d?.enabled !== !1, p = d?.entity?.trim(), m = u && p ? this.hass?.states?.[p]?.state : void 0, h = (d?.arm_value?.trim() || "armed").toLowerCase(), g = m !== void 0 && (m.toLowerCase() === h || m.toLowerCase().startsWith("armed") || m.toLowerCase() === "on" || m.toLowerCase() === "locked");
+			return P`
+            <div class="banner-wrapper ${f && this.keypadOpen ? "keypad-open" : ""}">
               <div
                 class="banner template-${i.name.toLowerCase()}"
                 style=${e.icon_color ? `--custom-icon-color: ${e.icon_color};` : ""}
@@ -2122,19 +2486,49 @@ var $ = class extends W {
                 <div class="content">
                   <div class="badge-row">
                     <span class="badge">${s}</span>
-                    ${c ? N`
+                    ${c ? P`
                           <span
                             class="last-changed-badge"
                             title="Last changed: ${c.full}"
                           >
                             🕒 ${c.relative}
                           </span>
-                        ` : F}
+                        ` : I}
                   </div>
                   <span class="message">${this.formatMessage(e, n)}</span>
                 </div>
 
-                ${l && r ? N`
+                ${u && (f || this.armDelayRemaining > 0 || m !== void 0) ? P`
+                      <div class="secure-right-controls">
+                        ${this.armDelayRemaining > 0 ? P`
+                              <span class="alarm-status-badge arming">
+                                ⏳ Arming in ${this.armDelayRemaining}s
+                              </span>
+                            ` : m === void 0 ? I : P`
+                                <span
+                                  class="alarm-status-badge ${g ? "armed" : "disarmed"}"
+                                >
+                                  ${g ? "🔒" : "🔓"} ${m}
+                                </span>
+                              `}
+                        ${f ? P`
+                              <button
+                                type="button"
+                                class="keypad-toggle-btn ${this.keypadOpen ? "active" : ""}"
+                                title=${this.keypadOpen ? "Close Keypad" : "Open Arm / Disarm Keypad"}
+                                aria-label=${this.keypadOpen ? "Close Keypad" : "Open Arm / Disarm Keypad"}
+                                aria-expanded=${this.keypadOpen ? "true" : "false"}
+                                @pointerdown=${(e) => e.stopPropagation()}
+                                @pointerup=${(e) => e.stopPropagation()}
+                                @click=${(e) => this.toggleKeypad(e)}
+                              >
+                                <ha-icon icon="mdi:dialpad"></ha-icon>
+                              </button>
+                            ` : I}
+                      </div>
+                    ` : I}
+
+                ${l && r ? P`
                       <div
                         class="hold-menu-overlay"
                         @pointerdown=${(e) => e.stopPropagation()}
@@ -2166,10 +2560,12 @@ var $ = class extends W {
                           </button>
                         </div>
                       </div>
-                    ` : F}
+                    ` : I}
 
                 <span class="bottom-ribbon" aria-hidden="true"></span>
               </div>
+
+              ${f && this.keypadOpen ? this.renderKeypadDropdown() : I}
             </div>
           `;
 		})}
@@ -2189,9 +2585,262 @@ var $ = class extends W {
         flex-direction: column;
         gap: 10px;
       }
+
+      .banner-wrapper.keypad-open:hover,
+      .banner-wrapper.keypad-open:active {
+        transform: none;
+      }
+
+      .secure-right-controls {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .keypad-toggle-btn {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+        border-radius: 10px;
+        border: 1px solid color-mix(in srgb, var(--template-accent-color, #22c55e) 35%, transparent);
+        background: color-mix(in srgb, var(--template-accent-color, #22c55e) 16%, var(--base-surface));
+        color: var(--primary-text-color, #f8fafc);
+        cursor: pointer;
+        transition: transform 0.14s ease, background 0.16s ease, border-color 0.16s ease;
+      }
+
+      .keypad-toggle-btn ha-icon {
+        --mdc-icon-size: 20px;
+      }
+
+      .keypad-toggle-btn:hover {
+        background: color-mix(in srgb, var(--template-accent-color, #22c55e) 26%, var(--base-surface));
+        border-color: color-mix(in srgb, var(--template-accent-color, #22c55e) 60%, transparent);
+      }
+
+      .keypad-toggle-btn:active {
+        transform: scale(0.94);
+      }
+
+      .keypad-toggle-btn.active {
+        background: color-mix(in srgb, var(--template-accent-color, #22c55e) 32%, var(--base-surface));
+        border-color: var(--template-accent-color, #22c55e);
+      }
+
+      .keypad-dropdown {
+        margin-top: 6px;
+        padding: 14px;
+        border-radius: var(--ha-card-border-radius, 12px);
+        background: color-mix(in srgb, #22c55e 8%, var(--base-surface));
+        border: 1px solid color-mix(in srgb, #22c55e 28%, rgba(255, 255, 255, 0.12));
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        animation: keypadSlideDown 0.16s ease-out;
+      }
+
+      @keyframes keypadSlideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .keypad-status-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.22);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        min-height: 24px;
+      }
+
+      .keypad-code-display {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--primary-text-color, #f8fafc);
+        letter-spacing: 0.22em;
+      }
+
+      .keypad-code-display.error {
+        animation: keypadShake 0.28s ease;
+      }
+
+      @keyframes keypadShake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-4px);
+        }
+        75% {
+          transform: translateX(4px);
+        }
+      }
+
+      .keypad-placeholder {
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--secondary-text-color, #94a3b8);
+      }
+
+      .keypad-feedback {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+      }
+
+      .keypad-feedback.error {
+        color: var(--error-color, #f87171);
+      }
+
+      .keypad-feedback.success {
+        color: var(--success-color, #4ade80);
+      }
+
+      .keypad-feedback.arming {
+        color: var(--warning-color, #fbbf24);
+      }
+
+      .alarm-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        border-radius: 4px;
+        border: 1px solid transparent;
+      }
+
+      .alarm-status-badge.armed {
+        color: var(--warning-color, #fbbf24);
+        background: color-mix(in srgb, var(--warning-color, #f59e0b) 18%, var(--base-surface));
+        border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 42%, transparent);
+      }
+
+      .alarm-status-badge.disarmed {
+        color: var(--success-color, #4ade80);
+        background: color-mix(in srgb, var(--success-color, #22c55e) 16%, var(--base-surface));
+        border-color: color-mix(in srgb, var(--success-color, #22c55e) 38%, transparent);
+      }
+
+      .alarm-status-badge.arming {
+        color: var(--warning-color, #fbbf24);
+        background: color-mix(in srgb, var(--warning-color, #f59e0b) 20%, var(--base-surface));
+        border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 45%, transparent);
+      }
+
+      .keypad-entity-state {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--secondary-text-color, #cbd5e1);
+      }
+
+      .keypad-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .keypad-action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: filter 0.14s ease, transform 0.1s ease;
+      }
+
+      .keypad-action-btn ha-icon {
+        --mdc-icon-size: 18px;
+      }
+
+      .keypad-action-btn:hover {
+        filter: brightness(1.12);
+      }
+
+      .keypad-action-btn:active {
+        transform: scale(0.97);
+      }
+
+      .keypad-arm-btn {
+        background: color-mix(in srgb, var(--warning-color, #f59e0b) 22%, var(--base-surface));
+        color: var(--warning-color, #fbbf24);
+        border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 48%, transparent);
+      }
+
+      .keypad-disarm-btn {
+        background: color-mix(in srgb, var(--success-color, #22c55e) 22%, var(--base-surface));
+        color: var(--success-color, #4ade80);
+        border-color: color-mix(in srgb, var(--success-color, #22c55e) 48%, transparent);
+      }
+
+      .keypad-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .keypad-key {
+        height: 42px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--primary-text-color, #f8fafc);
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.12s ease, transform 0.1s ease;
+      }
+
+      .keypad-key:hover {
+        background: rgba(255, 255, 255, 0.13);
+      }
+
+      .keypad-key:active {
+        transform: scale(0.95);
+      }
+
+      .keypad-key-secondary {
+        font-size: 0.9rem;
+        color: var(--secondary-text-color, #cbd5e1);
+        background: rgba(255, 255, 255, 0.03);
+      }
     `
 		];
 	}
 };
-Z([G({ attribute: !1 })], $.prototype, "hass", void 0), Z([K()], $.prototype, "config", void 0), Z([K()], $.prototype, "holdMenuKey", void 0), $ = Z([xe("guardian-alerts-card")], $);
+Z([G({ attribute: !1 })], $.prototype, "hass", void 0), Z([K()], $.prototype, "config", void 0), Z([K()], $.prototype, "holdMenuKey", void 0), Z([K()], $.prototype, "keypadOpen", void 0), Z([K()], $.prototype, "keypadCode", void 0), Z([K()], $.prototype, "keypadFeedback", void 0), Z([K()], $.prototype, "armDelayRemaining", void 0), $ = Z([xe("guardian-alerts-card")], $);
 export { $ as GuardianAlertsCard };

@@ -141,6 +141,8 @@
             'alert_octagon': 'gpp_maybe',
             'shield_alert': 'gpp_maybe',
             'shield_off': 'remove_moderator',
+            'shield_lock': 'shield_lock',
+            'dialpad': 'dialpad',
             'garage_open': 'garage_home',
             'garage': 'garage_home',
         };
@@ -188,16 +190,42 @@
                     last_changed: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
                     attributes: { friendly_name: 'Front Porch Motion' }
                 },
+                'input_text.alarm_state': {
+                    state: 'disarmed',
+                    entity_id: 'input_text.alarm_state',
+                    last_changed: nowIso,
+                    attributes: { friendly_name: 'Alarm State' }
+                },
             },
             callService: (domain, service, serviceData, target) => {
                 console.log(`[HASS SERVICE CALL] -> ${domain}.${service}`, { serviceData, target });
                 appendLog(`callService: ${domain}.${service} | data=${JSON.stringify(serviceData || {})} target=${JSON.stringify(target || {})}`);
+                if (domain === 'input_text' && service === 'set_value' && serviceData?.entity_id && mockHass.states[serviceData.entity_id]) {
+                    mockHass.states[serviceData.entity_id] = {
+                        ...mockHass.states[serviceData.entity_id],
+                        state: String(serviceData.value ?? ''),
+                        last_changed: new Date().toISOString(),
+                    };
+                    card.hass = { ...mockHass };
+                }
             }
         };
 
         // 3. Card Configuration showcasing multi-entity monitoring, chimes, and on-hold Snooze/Dismiss
         let currentConfig = {
             type: 'custom:guardian-alerts-card',
+            default_alert: {
+                template: 'SECURE',
+                message: 'All Secured',
+                icon: 'mdi:shield-check',
+                keypad: {
+                    enabled: true,
+                    entity: 'input_text.alarm_state',
+                    arm_value: 'armed',
+                    disarm_value: 'disarmed',
+                    passcodes: ['1234', '5678'],
+                }
+            },
             alerts: [
                 {
                     priority: 'P3',

@@ -54,6 +54,16 @@ input_boolean:
     name: Alert Scene Activated
     initial: false
     icon: mdi:lightbulb-alert
+  test_secure_alert:
+    name: Simulate Secure Card Alert
+    initial: false
+    icon: mdi:shield-alert
+
+input_text:
+  alarm_mode:
+    name: Alarm Mode
+    initial: "disarmed"
+    icon: mdi:shield-lock
 
 template:
   - binary_sensor:
@@ -111,10 +121,44 @@ views:
           - entity: input_boolean.garage_entry_door
           - entity: input_boolean.perimeter_intrusion
           - entity: input_boolean.alert_scene_indicator
+          - entity: input_boolean.test_secure_alert
+          - entity: input_text.alarm_mode
           - entity: binary_sensor.garage_entry_door
           - entity: alarm_control_panel.main_alarm
 
       - type: custom:guardian-alerts-card
+        default_alert:
+          template: SECURE
+          message: All Secured
+          icon: mdi:shield-check
+          keypad:
+            enabled: true
+            entity: input_text.alarm_mode
+            arm_value: armed
+            disarm_value: disarmed
+            passcodes:
+              - "1234"
+              - "5678"
+        alerts:
+          - priority: P1
+            entity: input_boolean.test_secure_alert
+            state: "on"
+            template: WARNING
+            message: "Test Secure Card Alert Active"
+
+      - type: custom:guardian-alerts-card
+        default_alert:
+          template: SECURE
+          message: All Secured
+          icon: mdi:shield-check
+          keypad:
+            enabled: true
+            entity: input_text.alarm_mode
+            arm_value: armed
+            disarm_value: disarmed
+            passcodes:
+              - "1234"
+              - "5678"
         alerts:
           - priority: P1
             entity: input_boolean.perimeter_intrusion
@@ -156,12 +200,50 @@ OVERVIEW_STORAGE_JSON='{
               "entities": [
                 "input_boolean.garage_entry_door",
                 "input_boolean.perimeter_intrusion",
+                "input_boolean.test_secure_alert",
+                "input_text.alarm_mode",
                 "binary_sensor.garage_entry_door",
                 "alarm_control_panel.main_alarm"
               ]
             },
             {
               "type": "custom:guardian-alerts-card",
+              "default_alert": {
+                "template": "SECURE",
+                "message": "All Secured",
+                "icon": "mdi:shield-check",
+                "keypad": {
+                  "enabled": true,
+                  "entity": "input_text.alarm_mode",
+                  "arm_value": "armed",
+                  "disarm_value": "disarmed",
+                  "passcodes": ["1234", "5678"]
+                }
+              },
+              "alerts": [
+                {
+                  "priority": "P1",
+                  "entity": "input_boolean.test_secure_alert",
+                  "state": "on",
+                  "template": "WARNING",
+                  "message": "Test Secure Card Alert Active"
+                }
+              ]
+            },
+            {
+              "type": "custom:guardian-alerts-card",
+              "default_alert": {
+                "template": "SECURE",
+                "message": "All Secured",
+                "icon": "mdi:shield-check",
+                "keypad": {
+                  "enabled": true,
+                  "entity": "input_text.alarm_mode",
+                  "arm_value": "armed",
+                  "disarm_value": "disarmed",
+                  "passcodes": ["1234", "5678"]
+                }
+              },
               "alerts": [
                 {
                   "priority": "P1",
