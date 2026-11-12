@@ -46,6 +46,11 @@ const TEMPLATE_OPTIONS = [
 const OPERATOR_OPTIONS = [
   { value: 'equals', label: 'Equal (=) — Matches any selected state' },
   { value: 'not_equals', label: 'Not Equal (≠) — Does not match selected state(s)' },
+  { value: 'contains', label: 'Contains — State contains text' },
+  { value: 'gt', label: 'Greater Than (>) — Numeric value above' },
+  { value: 'gte', label: 'Greater or Equal (≥) — Numeric value at or above' },
+  { value: 'lt', label: 'Less Than (<) — Numeric value below' },
+  { value: 'lte', label: 'Less or Equal (≤) — Numeric value at or below' },
 ];
 
 const CHIME_OPTIONS = [
@@ -203,18 +208,18 @@ export class GuardianAlertsCardEditor extends LitElement {
   };
 
   private normalizeRuleEntities(rule: AlertRule): string[] {
-    const raw: string[] = [];
     if (Array.isArray(rule.entities)) {
-      for (const e of rule.entities) {
-        if (typeof e === 'string' && e.trim() !== '') {
-          raw.push(e.trim());
-        }
+      const fromArray = rule.entities
+        .filter((e): e is string => typeof e === 'string' && e.trim() !== '')
+        .map((e) => e.trim());
+      if (fromArray.length > 0) {
+        return Array.from(new Set(fromArray));
       }
     }
     if (typeof rule.entity === 'string' && rule.entity.trim() !== '') {
-      raw.push(rule.entity.trim());
+      return [rule.entity.trim()];
     }
-    return Array.from(new Set(raw));
+    return [];
   }
 
   private normalizeRuleStates(rule: AlertRule): string[] {
@@ -298,13 +303,15 @@ export class GuardianAlertsCardEditor extends LitElement {
       addOption(s);
     }
 
+    let matchedKnownDomain = false;
+
     for (const rawId of entityIds) {
       const cleanEntity = (rawId || '').trim();
       const stateObj = cleanEntity ? this.hass?.states?.[cleanEntity] : undefined;
       if (stateObj) {
         if (stateObj.state !== undefined && stateObj.state !== null) {
           const cur = String(stateObj.state).trim();
-          addOption(cur, `${cur} (Current State)`);
+          addOption(cur);
         }
 
         const attrs = stateObj.attributes || {};
@@ -329,6 +336,7 @@ export class GuardianAlertsCardEditor extends LitElement {
 
       const domain = cleanEntity.includes('.') ? cleanEntity.split('.')[0] : '';
       if (domain && DOMAIN_STATE_SUGGESTIONS[domain]) {
+        matchedKnownDomain = true;
         for (const s of DOMAIN_STATE_SUGGESTIONS[domain]) {
           addOption(s);
         }
@@ -336,15 +344,17 @@ export class GuardianAlertsCardEditor extends LitElement {
 
       if ((domain === 'person' || domain === 'device_tracker') && this.hass?.states) {
         for (const [id, st] of Object.entries(this.hass.states)) {
-          if (id.startsWith('zone.') && st?.attributes?.friendly_name) {
+          if (id.startsWith('zone.') && id !== 'zone.home' && st?.attributes?.friendly_name) {
             addOption(String(st.attributes.friendly_name));
           }
         }
       }
     }
 
-    for (const common of ['on', 'off', 'triggered', 'disarmed', 'open', 'closed', 'home', 'not_home', 'unavailable']) {
-      addOption(common);
+    if (!matchedKnownDomain) {
+      for (const common of ['on', 'off', 'triggered', 'disarmed', 'open', 'closed', 'home', 'not_home', 'unavailable']) {
+        addOption(common);
+      }
     }
 
     return options;

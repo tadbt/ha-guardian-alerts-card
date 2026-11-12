@@ -1011,13 +1011,36 @@ var Me = {
 		value: "CRITICAL",
 		label: "CRITICAL (Red — Slow Flash)"
 	}
-], Fe = [{
-	value: "equals",
-	label: "Equal (=) — Matches any selected state"
-}, {
-	value: "not_equals",
-	label: "Not Equal (≠) — Does not match selected state(s)"
-}], Ie = [
+], Fe = [
+	{
+		value: "equals",
+		label: "Equal (=) — Matches any selected state"
+	},
+	{
+		value: "not_equals",
+		label: "Not Equal (≠) — Does not match selected state(s)"
+	},
+	{
+		value: "contains",
+		label: "Contains — State contains text"
+	},
+	{
+		value: "gt",
+		label: "Greater Than (>) — Numeric value above"
+	},
+	{
+		value: "gte",
+		label: "Greater or Equal (≥) — Numeric value at or above"
+	},
+	{
+		value: "lt",
+		label: "Less Than (<) — Numeric value below"
+	},
+	{
+		value: "lte",
+		label: "Less or Equal (≤) — Numeric value at or below"
+	}
+], Ie = [
 	{
 		value: "none",
 		label: "None (Silent)"
@@ -1209,9 +1232,11 @@ var Me = {
 		}));
 	}
 	normalizeRuleEntities(e) {
-		let t = [];
-		if (Array.isArray(e.entities)) for (let n of e.entities) typeof n == "string" && n.trim() !== "" && t.push(n.trim());
-		return typeof e.entity == "string" && e.entity.trim() !== "" && t.push(e.entity.trim()), Array.from(new Set(t));
+		if (Array.isArray(e.entities)) {
+			let t = e.entities.filter((e) => typeof e == "string" && e.trim() !== "").map((e) => e.trim());
+			if (t.length > 0) return Array.from(new Set(t));
+		}
+		return typeof e.entity == "string" && e.entity.trim() !== "" ? [e.entity.trim()] : [];
 	}
 	normalizeRuleStates(e) {
 		let t = [];
@@ -1266,13 +1291,11 @@ var Me = {
 			}));
 		};
 		for (let e of t) i(e);
+		let a = !1;
 		for (let t of e) {
 			let e = (t || "").trim(), n = e ? this.hass?.states?.[e] : void 0;
 			if (n) {
-				if (n.state !== void 0 && n.state !== null) {
-					let e = String(n.state).trim();
-					i(e, `${e} (Current State)`);
-				}
+				n.state !== void 0 && n.state !== null && i(String(n.state).trim());
 				let e = n.attributes || {}, t = [
 					e.options,
 					e.hvac_modes,
@@ -1286,10 +1309,13 @@ var Me = {
 				for (let e of t) if (Array.isArray(e)) for (let t of e) i(String(t));
 			}
 			let r = e.includes(".") ? e.split(".")[0] : "";
-			if (r && Le[r]) for (let e of Le[r]) i(e);
-			if ((r === "person" || r === "device_tracker") && this.hass?.states) for (let [e, t] of Object.entries(this.hass.states)) e.startsWith("zone.") && t?.attributes?.friendly_name && i(String(t.attributes.friendly_name));
+			if (r && Le[r]) {
+				a = !0;
+				for (let e of Le[r]) i(e);
+			}
+			if ((r === "person" || r === "device_tracker") && this.hass?.states) for (let [e, t] of Object.entries(this.hass.states)) e.startsWith("zone.") && e !== "zone.home" && t?.attributes?.friendly_name && i(String(t.attributes.friendly_name));
 		}
-		for (let e of [
+		if (!a) for (let e of [
 			"on",
 			"off",
 			"triggered",
@@ -1795,15 +1821,17 @@ window.customCards = window.customCards || [], window.customCards.some((e) => e.
 });
 var $ = class extends W {
 	constructor(...e) {
-		super(...e), this.holdMenuKey = null, this.isHolding = !1, this.activeEntryKeys = /* @__PURE__ */ new Set(), this.matchedSinceMap = /* @__PURE__ */ new Map(), this.durationTimers = /* @__PURE__ */ new Map(), this.dismissedEntryKeys = /* @__PURE__ */ new Set(), this.snoozedUntilMap = /* @__PURE__ */ new Map(), this.snoozeTimers = /* @__PURE__ */ new Map(), this.hasInitializedStates = !1;
+		super(...e), this.holdMenuKey = null, this.isHolding = !1, this.activeEntryKeys = /* @__PURE__ */ new Set(), this.matchedSinceMap = /* @__PURE__ */ new Map(), this.durationTimers = /* @__PURE__ */ new Map(), this.dismissedEntryKeys = /* @__PURE__ */ new Set(), this.snoozedUntilMap = /* @__PURE__ */ new Map(), this.snoozeTimers = /* @__PURE__ */ new Map(), this.hasInitializedStates = !1, this.handleVisibilityOrFocus = () => {
+			document.visibilityState !== "hidden" && (this.evaluateRules(), this.requestUpdate());
+		};
 	}
 	connectedCallback() {
 		super.connectedCallback(), this.relativeTimeInterval = window.setInterval(() => {
-			this.requestUpdate();
-		}, 3e4);
+			this.evaluateRules(), this.requestUpdate();
+		}, 15e3), document.addEventListener("visibilitychange", this.handleVisibilityOrFocus), window.addEventListener("focus", this.handleVisibilityOrFocus);
 	}
 	disconnectedCallback() {
-		super.disconnectedCallback(), this.relativeTimeInterval !== void 0 && (window.clearInterval(this.relativeTimeInterval), this.relativeTimeInterval = void 0), this.clearAllTimers();
+		super.disconnectedCallback(), this.relativeTimeInterval !== void 0 && (window.clearInterval(this.relativeTimeInterval), this.relativeTimeInterval = void 0), document.removeEventListener("visibilitychange", this.handleVisibilityOrFocus), window.removeEventListener("focus", this.handleVisibilityOrFocus), this.clearAllTimers();
 	}
 	clearAllTimers() {
 		window.clearTimeout(this.holdTimeout);
@@ -1848,9 +1876,11 @@ var $ = class extends W {
 		}, this.holdMenuKey = null, this.activeEntryKeys.clear(), this.matchedSinceMap.clear(), this.dismissedEntryKeys.clear(), this.snoozedUntilMap.clear(), this.hasInitializedStates = !1;
 	}
 	getMonitoredEntities(e) {
-		let t = [];
-		if (Array.isArray(e.entities)) for (let n of e.entities) typeof n == "string" && n.trim() !== "" && t.push(n.trim());
-		return typeof e.entity == "string" && e.entity.trim() !== "" && t.push(e.entity.trim()), Array.from(new Set(t));
+		if (Array.isArray(e.entities)) {
+			let t = e.entities.filter((e) => typeof e == "string" && e.trim() !== "").map((e) => e.trim());
+			if (t.length > 0) return Array.from(new Set(t));
+		}
+		return typeof e.entity == "string" && e.entity.trim() !== "" ? [e.entity.trim()] : [];
 	}
 	getTargetStates(e) {
 		let t = [];
@@ -1891,6 +1921,10 @@ var $ = class extends W {
 	}
 	matchesSingleExpected(e, t, n) {
 		if (n === "contains") return e.toLowerCase().includes(t.toLowerCase());
+		if (n === "gt" || n === "gte" || n === "lt" || n === "lte") {
+			let r = Number(e), i = Number(t.trim());
+			return e === "" || t.trim() === "" || Number.isNaN(r) || Number.isNaN(i) ? !1 : n === "gt" ? r > i : n === "gte" ? r >= i : n === "lt" ? r < i : r <= i;
+		}
 		let r = t.match(/^(>=|<=|!=|==|>|<)\s*(.+)$/);
 		if (r) {
 			let [, t, n] = r, i = Number(e), a = Number(n);
@@ -1915,7 +1949,7 @@ var $ = class extends W {
 		let r = this.hass?.states?.[t];
 		if (!r || r.state === void 0 || r.state === null) return !1;
 		let i = String(r.state).trim(), a = e.operator || "equals";
-		return a === "not_equals" ? n.every((e) => !this.matchesSingleExpected(i, e, "equals")) : a === "contains" ? n.some((e) => this.matchesSingleExpected(i, e, "contains")) : n.some((e) => this.matchesSingleExpected(i, e, "equals"));
+		return a === "not_equals" ? n.every((e) => !this.matchesSingleExpected(i, e, "equals")) : n.some((e) => this.matchesSingleExpected(i, e, a));
 	}
 	isEntityEntryActive(e, t, n) {
 		let r = this.getEntryKey(e, t, n);
@@ -1926,18 +1960,15 @@ var $ = class extends W {
 		}
 		let i = this.parseDurationMs(e.for ?? e.duration);
 		if (i <= 0) return !0;
-		let a = this.matchedSinceMap.get(r);
-		if (a === void 0) {
-			let e = this.hass?.states?.[n], t = e?.last_changed ? Date.parse(e.last_changed) : NaN;
-			a = !this.hasInitializedStates && !Number.isNaN(t) && t <= Date.now() || !Number.isNaN(t) && Math.abs(Date.now() - t) < 2e3 ? t : Date.now(), this.matchedSinceMap.set(r, a);
-		}
-		let o = Date.now() - a;
-		if (o >= i) {
+		let a = Date.now(), o = this.hass?.states?.[n], s = o?.last_changed ? Date.parse(o.last_changed) : NaN, c = Number.isNaN(s) ? NaN : Math.min(a, s), l = this.matchedSinceMap.get(r);
+		l === void 0 ? (l = Number.isNaN(c) ? a : c, this.matchedSinceMap.set(r, l)) : !Number.isNaN(c) && c < l && (l = c, this.matchedSinceMap.set(r, l));
+		let u = a - l;
+		if (u >= i) {
 			let e = this.durationTimers.get(r);
 			return e !== void 0 && (window.clearTimeout(e), this.durationTimers.delete(r)), !0;
 		}
 		if (!this.durationTimers.has(r)) {
-			let e = Math.max(20, i - o + 25), t = window.setTimeout(() => {
+			let e = Math.max(20, i - u + 25), t = window.setTimeout(() => {
 				this.durationTimers.delete(r), this.evaluateRules(), this.requestUpdate();
 			}, e);
 			this.durationTimers.set(r, t);
@@ -1999,8 +2030,8 @@ var $ = class extends W {
 			full: i
 		};
 	}
-	updated(e) {
-		super.updated(e), this.hass && this.config && (e.has("hass") || e.has("config")) && this.evaluateRules();
+	willUpdate(e) {
+		super.willUpdate(e), this.hass && this.config && (e.has("hass") || e.has("config")) && this.evaluateRules();
 	}
 	onBannerPointerDown(e) {
 		e && this.holdMenuKey !== e && (this.isHolding = !1, window.clearTimeout(this.holdTimeout), this.holdTimeout = window.setTimeout(() => {

@@ -2,7 +2,7 @@ export type AlertSeverity = 'SECURE' | 'INFO' | 'WARNING' | 'CRITICAL';
 
 export type AlertPriority = 'P1' | 'P2' | 'P3' | 'P4';
 
-export type StateOperator = 'equals' | 'not_equals' | 'contains';
+export type StateOperator = 'equals' | 'not_equals' | 'contains' | 'gt' | 'gte' | 'lt' | 'lte';
 
 export type ChimeType = 'none' | 'soft_chime' | 'double_beep' | 'urgent_alarm';
 
@@ -19,7 +19,7 @@ export interface AlertRule {
     entities?: string[]; // Multiple entities to monitor (triggers for each matching entity)
     state?: string | number | boolean | Array<string | number | boolean>; // Single or multiple trigger states
     states?: Array<string | number | boolean>; // Optional alias for multiple trigger states
-    operator?: StateOperator; // 'equals' (default) | 'not_equals' | 'contains'
+    operator?: StateOperator; // 'equals' (default) | 'not_equals' | 'contains' | 'gt' | 'gte' | 'lt' | 'lte'
     for?: DurationConfig | number | string; // How long entity must stay in state to trigger
     duration?: DurationConfig | number | string; // Alias for `for`
     priority?: AlertPriority; // 'P1' | 'P2' | 'P3' | 'P4' (orders active alerts)

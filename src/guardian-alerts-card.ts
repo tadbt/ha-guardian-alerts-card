@@ -70,10 +70,13 @@ export class GuardianAlertsCard extends LitElement {
 
   public connectedCallback(): void {
     super.connectedCallback();
-    // Refresh relative "last changed" badges every 30s
+    // Periodically re-evaluate duration rules and refresh relative "last changed" badges
     this.relativeTimeInterval = window.setInterval(() => {
+      this.evaluateRules();
       this.requestUpdate();
-    }, 30_000);
+    }, 15_000);
+    document.addEventListener('visibilitychange', this.handleVisibilityOrFocus);
+    window.addEventListener('focus', this.handleVisibilityOrFocus);
   }
 
   public disconnectedCallback(): void {
@@ -82,8 +85,16 @@ export class GuardianAlertsCard extends LitElement {
       window.clearInterval(this.relativeTimeInterval);
       this.relativeTimeInterval = undefined;
     }
+    document.removeEventListener('visibilitychange', this.handleVisibilityOrFocus);
+    window.removeEventListener('focus', this.handleVisibilityOrFocus);
     this.clearAllTimers();
   }
+
+  private handleVisibilityOrFocus = (): void => {
+    if (document.visibilityState === 'hidden') return;
+    this.evaluateRules();
+    this.requestUpdate();
+  };
 
   private clearAllTimers(): void {
     window.clearTimeout(this.holdTimeout);
@@ -150,18 +161,18 @@ export class GuardianAlertsCard extends LitElement {
   }
 
   private getMonitoredEntities(rule: AlertRule): string[] {
-    const raw: string[] = [];
     if (Array.isArray(rule.entities)) {
-      for (const e of rule.entities) {
-        if (typeof e === 'string' && e.trim() !== '') {
-          raw.push(e.trim());
-        }
+      const fromArray = rule.entities
+        .filter((e): e is string => typeof e === 'string' && e.trim() !== '')
+        .map((e) => e.trim());
+      if (fromArray.length > 0) {
+        return Array.from(new Set(fromArray));
       }
     }
     if (typeof rule.entity === 'string' && rule.entity.trim() !== '') {
-      raw.push(rule.entity.trim());
+      return [rule.entity.trim()];
     }
-    return Array.from(new Set(raw));
+    return [];
   }
 
   private getTargetStates(rule: AlertRule): string[] {
@@ -241,6 +252,23 @@ export class GuardianAlertsCard extends LitElement {
       return actualRaw.toLowerCase().includes(expectedRaw.toLowerCase());
     }
 
+    if (operator === 'gt' || operator === 'gte' || operator === 'lt' || operator === 'lte') {
+      const actualNum = Number(actualRaw);
+      const expectedNum = Number(expectedRaw.trim());
+      if (
+        actualRaw === '' ||
+        expectedRaw.trim() === '' ||
+        Number.isNaN(actualNum) ||
+        Number.isNaN(expectedNum)
+      ) {
+        return false;
+      }
+      if (operator === 'gt') return actualNum > expectedNum;
+      if (operator === 'gte') return actualNum >= expectedNum;
+      if (operator === 'lt') return actualNum < expectedNum;
+      return actualNum <= expectedNum;
+    }
+
     const opMatch = expectedRaw.match(/^(>=|<=|!=|==|>|<)\s*(.+)$/);
     if (opMatch) {
       const [, op, rhsRaw] = opMatch;
@@ -286,13 +314,7 @@ export class GuardianAlertsCard extends LitElement {
       return targets.every((expected) => !this.matchesSingleExpected(actualRaw, expected, 'equals'));
     }
 
-    if (operator === 'contains') {
-      return targets.some((expected) =>
-        this.matchesSingleExpected(actualRaw, expected, 'contains')
-      );
-    }
-
-    return targets.some((expected) => this.matchesSingleExpected(actualRaw, expected, 'equals'));
+    return targets.some((expected) => this.matchesSingleExpected(actualRaw, expected, operator));
   }
 
   private isEntityEntryActive(rule: AlertRule, index: number, entityId: string): boolean {
@@ -314,21 +336,23 @@ export class GuardianAlertsCard extends LitElement {
       return true;
     }
 
+    const now = Date.now();
+    const stateObj = this.hass?.states?.[entityId];
+    const lastChangedMs = stateObj?.last_changed ? Date.parse(stateObj.last_changed) : NaN;
+    const validLastChangedMs = !Number.isNaN(lastChangedMs) ? Math.min(now, lastChangedMs) : NaN;
+
     let matchedSince = this.matchedSinceMap.get(entryKey);
     if (matchedSince === undefined) {
-      const stateObj = this.hass?.states?.[entityId];
-      const lastChangedMs = stateObj?.last_changed ? Date.parse(stateObj.last_changed) : NaN;
-      if (!this.hasInitializedStates && !Number.isNaN(lastChangedMs) && lastChangedMs <= Date.now()) {
-        matchedSince = lastChangedMs;
-      } else if (!Number.isNaN(lastChangedMs) && Math.abs(Date.now() - lastChangedMs) < 2000) {
-        matchedSince = lastChangedMs;
-      } else {
-        matchedSince = Date.now();
-      }
+      // Use Home Assistant's authoritative stateObj.last_changed timestamp so rules
+      // that have already been in the matching state for > `for` duration trigger immediately on load.
+      matchedSince = !Number.isNaN(validLastChangedMs) ? validLastChangedMs : now;
+      this.matchedSinceMap.set(entryKey, matchedSince);
+    } else if (!Number.isNaN(validLastChangedMs) && validLastChangedMs < matchedSince) {
+      matchedSince = validLastChangedMs;
       this.matchedSinceMap.set(entryKey, matchedSince);
     }
 
-    const elapsedMs = Date.now() - matchedSince;
+    const elapsedMs = now - matchedSince;
     if (elapsedMs >= requiredMs) {
       const timerId = this.durationTimers.get(entryKey);
       if (timerId !== undefined) {
@@ -440,8 +464,8 @@ export class GuardianAlertsCard extends LitElement {
     return { relative: `${diffDays}d ago`, full };
   }
 
-  protected updated(changedProps: PropertyValues): void {
-    super.updated(changedProps);
+  protected willUpdate(changedProps: PropertyValues): void {
+    super.willUpdate(changedProps);
     if (!this.hass || !this.config) return;
 
     if (changedProps.has('hass') || changedProps.has('config')) {
