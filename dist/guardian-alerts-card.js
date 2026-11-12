@@ -29,11 +29,11 @@ var e = globalThis, t = e.ShadowRoot && (e.ShadyCSS === void 0 || e.ShadyCSS.nat
 	let t = "";
 	for (let n of e.cssRules) t += n.cssText;
 	return a(t);
-})(e) : e, { is: l, defineProperty: u, getOwnPropertyDescriptor: d, getOwnPropertyNames: ee, getOwnPropertySymbols: te, getPrototypeOf: ne } = Object, f = globalThis, re = f.trustedTypes, ie = re ? re.emptyScript : "", ae = f.reactiveElementPolyfillSupport, p = (e, t) => e, m = {
+})(e) : e, { is: l, defineProperty: u, getOwnPropertyDescriptor: d, getOwnPropertyNames: f, getOwnPropertySymbols: ee, getPrototypeOf: te } = Object, p = globalThis, m = p.trustedTypes, ne = m ? m.emptyScript : "", re = p.reactiveElementPolyfillSupport, h = (e, t) => e, g = {
 	toAttribute(e, t) {
 		switch (t) {
 			case Boolean:
-				e = e ? ie : null;
+				e = e ? ne : null;
 				break;
 			case Object:
 			case Array: e = e == null ? e : JSON.stringify(e);
@@ -58,23 +58,23 @@ var e = globalThis, t = e.ShadowRoot && (e.ShadyCSS === void 0 || e.ShadyCSS.nat
 		}
 		return n;
 	}
-}, h = (e, t) => !l(e, t), g = {
+}, _ = (e, t) => !l(e, t), v = {
 	attribute: !0,
 	type: String,
-	converter: m,
+	converter: g,
 	reflect: !1,
 	useDefault: !1,
-	hasChanged: h
+	hasChanged: _
 };
-Symbol.metadata ??= Symbol("metadata"), f.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
-var _ = class extends HTMLElement {
+Symbol.metadata ??= Symbol("metadata"), p.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
+var y = class extends HTMLElement {
 	static addInitializer(e) {
 		this._$Ei(), (this.l ??= []).push(e);
 	}
 	static get observedAttributes() {
 		return this.finalize(), this._$Eh && [...this._$Eh.keys()];
 	}
-	static createProperty(e, t = g) {
+	static createProperty(e, t = v) {
 		if (t.state && (t.attribute = !1), this._$Ei(), this.prototype.hasOwnProperty(e) && ((t = Object.create(t)).wrapped = !0), this.elementProperties.set(e, t), !t.noAccessor) {
 			let n = Symbol(), r = this.getPropertyDescriptor(e, n, t);
 			r !== void 0 && u(this.prototype, e, r);
@@ -100,17 +100,17 @@ var _ = class extends HTMLElement {
 		};
 	}
 	static getPropertyOptions(e) {
-		return this.elementProperties.get(e) ?? g;
+		return this.elementProperties.get(e) ?? v;
 	}
 	static _$Ei() {
-		if (this.hasOwnProperty(p("elementProperties"))) return;
-		let e = ne(this);
+		if (this.hasOwnProperty(h("elementProperties"))) return;
+		let e = te(this);
 		e.finalize(), e.l !== void 0 && (this.l = [...e.l]), this.elementProperties = new Map(e.elementProperties);
 	}
 	static finalize() {
-		if (this.hasOwnProperty(p("finalized"))) return;
-		if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(p("properties"))) {
-			let e = this.properties, t = [...ee(e), ...te(e)];
+		if (this.hasOwnProperty(h("finalized"))) return;
+		if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(h("properties"))) {
+			let e = this.properties, t = [...f(e), ...ee(e)];
 			for (let n of t) this.createProperty(n, e[n]);
 		}
 		let e = this[Symbol.metadata];
@@ -171,14 +171,14 @@ var _ = class extends HTMLElement {
 	_$ET(e, t) {
 		let n = this.constructor.elementProperties.get(e), r = this.constructor._$Eu(e, n);
 		if (r !== void 0 && !0 === n.reflect) {
-			let i = (n.converter?.toAttribute === void 0 ? m : n.converter).toAttribute(t, n.type);
+			let i = (n.converter?.toAttribute === void 0 ? g : n.converter).toAttribute(t, n.type);
 			this._$Em = e, i == null ? this.removeAttribute(r) : this.setAttribute(r, i), this._$Em = null;
 		}
 	}
 	_$AK(e, t) {
 		let n = this.constructor, r = n._$Eh.get(e);
 		if (r !== void 0 && this._$Em !== r) {
-			let e = n.getPropertyOptions(r), i = typeof e.converter == "function" ? { fromAttribute: e.converter } : e.converter?.fromAttribute === void 0 ? m : e.converter;
+			let e = n.getPropertyOptions(r), i = typeof e.converter == "function" ? { fromAttribute: e.converter } : e.converter?.fromAttribute === void 0 ? g : e.converter;
 			this._$Em = r;
 			let a = i.fromAttribute(t, e.type);
 			this[r] = a ?? this._$Ej?.get(r) ?? a, this._$Em = null;
@@ -187,7 +187,7 @@ var _ = class extends HTMLElement {
 	requestUpdate(e, t, n, r = !1, i) {
 		if (e !== void 0) {
 			let a = this.constructor;
-			if (!1 === r && (i = this[e]), n ??= a.getPropertyOptions(e), !((n.hasChanged ?? h)(i, t) || n.useDefault && n.reflect && i === this._$Ej?.get(e) && !this.hasAttribute(a._$Eu(e, n)))) return;
+			if (!1 === r && (i = this[e]), n ??= a.getPropertyOptions(e), !((n.hasChanged ?? _)(i, t) || n.useDefault && n.reflect && i === this._$Ej?.get(e) && !this.hasAttribute(a._$Eu(e, n)))) return;
 			this.C(e, t, n);
 		}
 		!1 === this.isUpdatePending && (this._$ES = this._$EP());
@@ -251,88 +251,88 @@ var _ = class extends HTMLElement {
 	updated(e) {}
 	firstUpdated(e) {}
 };
-_.elementStyles = [], _.shadowRootOptions = { mode: "open" }, _[p("elementProperties")] = /* @__PURE__ */ new Map(), _[p("finalized")] = /* @__PURE__ */ new Map(), ae?.({ ReactiveElement: _ }), (f.reactiveElementVersions ??= []).push("2.1.2");
+y.elementStyles = [], y.shadowRootOptions = { mode: "open" }, y[h("elementProperties")] = /* @__PURE__ */ new Map(), y[h("finalized")] = /* @__PURE__ */ new Map(), re?.({ ReactiveElement: y }), (p.reactiveElementVersions ??= []).push("2.1.2");
 // node_modules/lit-html/lit-html.js
-var v = globalThis, y = (e) => e, b = v.trustedTypes, x = b ? b.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, S = "$lit$", C = `lit$${Math.random().toFixed(9).slice(2)}$`, oe = "?" + C, se = `<${oe}>`, w = document, T = () => w.createComment(""), E = (e) => e === null || typeof e != "object" && typeof e != "function", D = Array.isArray, ce = (e) => D(e) || typeof e?.[Symbol.iterator] == "function", O = "[ 	\n\f\r]", k = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, A = /-->/g, j = />/g, M = RegExp(`>|${O}(?:([^\\s"'>=/]+)(${O}*=${O}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`, "g"), N = /'/g, P = /"/g, F = /^(?:script|style|textarea|title)$/i, I = ((e) => (t, ...n) => ({
+var b = globalThis, x = (e) => e, S = b.trustedTypes, C = S ? S.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, w = "$lit$", T = `lit$${Math.random().toFixed(9).slice(2)}$`, E = "?" + T, ie = `<${E}>`, D = document, O = () => D.createComment(""), k = (e) => e === null || typeof e != "object" && typeof e != "function", A = Array.isArray, ae = (e) => A(e) || typeof e?.[Symbol.iterator] == "function", j = "[ 	\n\f\r]", M = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, oe = /-->/g, se = />/g, N = RegExp(`>|${j}(?:([^\\s"'>=/]+)(${j}*=${j}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`, "g"), ce = /'/g, le = /"/g, ue = /^(?:script|style|textarea|title)$/i, P = ((e) => (t, ...n) => ({
 	_$litType$: e,
 	strings: t,
 	values: n
-}))(1), L = Symbol.for("lit-noChange"), R = Symbol.for("lit-nothing"), z = /* @__PURE__ */ new WeakMap(), B = w.createTreeWalker(w, 129);
-function V(e, t) {
-	if (!D(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
-	return x === void 0 ? t : x.createHTML(t);
+}))(1), F = Symbol.for("lit-noChange"), I = Symbol.for("lit-nothing"), L = /* @__PURE__ */ new WeakMap(), R = D.createTreeWalker(D, 129);
+function z(e, t) {
+	if (!A(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
+	return C === void 0 ? t : C.createHTML(t);
 }
-var le = (e, t) => {
-	let n = e.length - 1, r = [], i, a = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", o = k;
+var de = (e, t) => {
+	let n = e.length - 1, r = [], i, a = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", o = M;
 	for (let t = 0; t < n; t++) {
 		let n = e[t], s, c, l = -1, u = 0;
-		for (; u < n.length && (o.lastIndex = u, c = o.exec(n), c !== null);) u = o.lastIndex, o === k ? c[1] === "!--" ? o = A : c[1] === void 0 ? c[2] === void 0 ? c[3] !== void 0 && (o = M) : (F.test(c[2]) && (i = RegExp("</" + c[2], "g")), o = M) : o = j : o === M ? c[0] === ">" ? (o = i ?? k, l = -1) : c[1] === void 0 ? l = -2 : (l = o.lastIndex - c[2].length, s = c[1], o = c[3] === void 0 ? M : c[3] === "\"" ? P : N) : o === P || o === N ? o = M : o === A || o === j ? o = k : (o = M, i = void 0);
-		let d = o === M && e[t + 1].startsWith("/>") ? " " : "";
-		a += o === k ? n + se : l >= 0 ? (r.push(s), n.slice(0, l) + S + n.slice(l) + C + d) : n + C + (l === -2 ? t : d);
+		for (; u < n.length && (o.lastIndex = u, c = o.exec(n), c !== null);) u = o.lastIndex, o === M ? c[1] === "!--" ? o = oe : c[1] === void 0 ? c[2] === void 0 ? c[3] !== void 0 && (o = N) : (ue.test(c[2]) && (i = RegExp("</" + c[2], "g")), o = N) : o = se : o === N ? c[0] === ">" ? (o = i ?? M, l = -1) : c[1] === void 0 ? l = -2 : (l = o.lastIndex - c[2].length, s = c[1], o = c[3] === void 0 ? N : c[3] === "\"" ? le : ce) : o === le || o === ce ? o = N : o === oe || o === se ? o = M : (o = N, i = void 0);
+		let d = o === N && e[t + 1].startsWith("/>") ? " " : "";
+		a += o === M ? n + ie : l >= 0 ? (r.push(s), n.slice(0, l) + w + n.slice(l) + T + d) : n + T + (l === -2 ? t : d);
 	}
-	return [V(e, a + (e[n] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), r];
-}, H = class e {
+	return [z(e, a + (e[n] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), r];
+}, B = class e {
 	constructor({ strings: t, _$litType$: n }, r) {
 		let i;
 		this.parts = [];
-		let a = 0, o = 0, s = t.length - 1, c = this.parts, [l, u] = le(t, n);
-		if (this.el = e.createElement(l, r), B.currentNode = this.el.content, n === 2 || n === 3) {
+		let a = 0, o = 0, s = t.length - 1, c = this.parts, [l, u] = de(t, n);
+		if (this.el = e.createElement(l, r), R.currentNode = this.el.content, n === 2 || n === 3) {
 			let e = this.el.content.firstChild;
 			e.replaceWith(...e.childNodes);
 		}
-		for (; (i = B.nextNode()) !== null && c.length < s;) {
+		for (; (i = R.nextNode()) !== null && c.length < s;) {
 			if (i.nodeType === 1) {
-				if (i.hasAttributes()) for (let e of i.getAttributeNames()) if (e.endsWith(S)) {
-					let t = u[o++], n = i.getAttribute(e).split(C), r = /([.?@])?(.*)/.exec(t);
+				if (i.hasAttributes()) for (let e of i.getAttributeNames()) if (e.endsWith(w)) {
+					let t = u[o++], n = i.getAttribute(e).split(T), r = /([.?@])?(.*)/.exec(t);
 					c.push({
 						type: 1,
 						index: a,
 						name: r[2],
 						strings: n,
-						ctor: r[1] === "." ? de : r[1] === "?" ? fe : r[1] === "@" ? pe : G
+						ctor: r[1] === "." ? pe : r[1] === "?" ? me : r[1] === "@" ? he : U
 					}), i.removeAttribute(e);
-				} else e.startsWith(C) && (c.push({
+				} else e.startsWith(T) && (c.push({
 					type: 6,
 					index: a
 				}), i.removeAttribute(e));
-				if (F.test(i.tagName)) {
-					let e = i.textContent.split(C), t = e.length - 1;
+				if (ue.test(i.tagName)) {
+					let e = i.textContent.split(T), t = e.length - 1;
 					if (t > 0) {
-						i.textContent = b ? b.emptyScript : "";
-						for (let n = 0; n < t; n++) i.append(e[n], T()), B.nextNode(), c.push({
+						i.textContent = S ? S.emptyScript : "";
+						for (let n = 0; n < t; n++) i.append(e[n], O()), R.nextNode(), c.push({
 							type: 2,
 							index: ++a
 						});
-						i.append(e[t], T());
+						i.append(e[t], O());
 					}
 				}
 			} else if (i.nodeType === 8) {
-				if (i.data === oe) c.push({
+				if (i.data === E) c.push({
 					type: 2,
 					index: a
 				});
 				else {
 					let e = -1;
-					for (; (e = i.data.indexOf(C, e + 1)) !== -1;) c.push({
+					for (; (e = i.data.indexOf(T, e + 1)) !== -1;) c.push({
 						type: 7,
 						index: a
-					}), e += C.length - 1;
+					}), e += T.length - 1;
 				}
 			}
 			a++;
 		}
 	}
 	static createElement(e, t) {
-		let n = w.createElement("template");
+		let n = D.createElement("template");
 		return n.innerHTML = e, n;
 	}
 };
-function U(e, t, n = e, r) {
-	if (t === L) return t;
-	let i = r === void 0 ? n._$Cl : n._$Co?.[r], a = E(t) ? void 0 : t._$litDirective$;
-	return i?.constructor !== a && (i?._$AO?.(!1), a === void 0 ? i = void 0 : (i = new a(e), i._$AT(e, n, r)), r === void 0 ? n._$Cl = i : (n._$Co ??= [])[r] = i), i !== void 0 && (t = U(e, i._$AS(e, t.values), i, r)), t;
+function V(e, t, n = e, r) {
+	if (t === F) return t;
+	let i = r === void 0 ? n._$Cl : n._$Co?.[r], a = k(t) ? void 0 : t._$litDirective$;
+	return i?.constructor !== a && (i?._$AO?.(!1), a === void 0 ? i = void 0 : (i = new a(e), i._$AT(e, n, r)), r === void 0 ? n._$Cl = i : (n._$Co ??= [])[r] = i), i !== void 0 && (t = V(e, i._$AS(e, t.values), i, r)), t;
 }
-var ue = class {
+var fe = class {
 	constructor(e, t) {
 		this._$AV = [], this._$AN = void 0, this._$AD = e, this._$AM = t;
 	}
@@ -343,28 +343,28 @@ var ue = class {
 		return this._$AM._$AU;
 	}
 	u(e) {
-		let { el: { content: t }, parts: n } = this._$AD, r = (e?.creationScope ?? w).importNode(t, !0);
-		B.currentNode = r;
-		let i = B.nextNode(), a = 0, o = 0, s = n[0];
+		let { el: { content: t }, parts: n } = this._$AD, r = (e?.creationScope ?? D).importNode(t, !0);
+		R.currentNode = r;
+		let i = R.nextNode(), a = 0, o = 0, s = n[0];
 		for (; s !== void 0;) {
 			if (a === s.index) {
 				let t;
-				s.type === 2 ? t = new W(i, i.nextSibling, this, e) : s.type === 1 ? t = new s.ctor(i, s.name, s.strings, this, e) : s.type === 6 && (t = new me(i, this, e)), this._$AV.push(t), s = n[++o];
+				s.type === 2 ? t = new H(i, i.nextSibling, this, e) : s.type === 1 ? t = new s.ctor(i, s.name, s.strings, this, e) : s.type === 6 && (t = new ge(i, this, e)), this._$AV.push(t), s = n[++o];
 			}
-			a !== s?.index && (i = B.nextNode(), a++);
+			a !== s?.index && (i = R.nextNode(), a++);
 		}
-		return B.currentNode = w, r;
+		return R.currentNode = D, r;
 	}
 	p(e) {
 		let t = 0;
 		for (let n of this._$AV) n !== void 0 && (n.strings === void 0 ? n._$AI(e[t]) : (n._$AI(e, n, t), t += n.strings.length - 2)), t++;
 	}
-}, W = class e {
+}, H = class e {
 	get _$AU() {
 		return this._$AM?._$AU ?? this._$Cv;
 	}
 	constructor(e, t, n, r) {
-		this.type = 2, this._$AH = R, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = n, this.options = r, this._$Cv = r?.isConnected ?? !0;
+		this.type = 2, this._$AH = I, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = n, this.options = r, this._$Cv = r?.isConnected ?? !0;
 	}
 	get parentNode() {
 		let e = this._$AA.parentNode, t = this._$AM;
@@ -377,7 +377,7 @@ var ue = class {
 		return this._$AB;
 	}
 	_$AI(e, t = this) {
-		e = U(this, e, t), E(e) ? e === R || e == null || e === "" ? (this._$AH !== R && this._$AR(), this._$AH = R) : e !== this._$AH && e !== L && this._(e) : e._$litType$ === void 0 ? e.nodeType === void 0 ? ce(e) ? this.k(e) : this._(e) : this.T(e) : this.$(e);
+		e = V(this, e, t), k(e) ? e === I || e == null || e === "" ? (this._$AH !== I && this._$AR(), this._$AH = I) : e !== this._$AH && e !== F && this._(e) : e._$litType$ === void 0 ? e.nodeType === void 0 ? ae(e) ? this.k(e) : this._(e) : this.T(e) : this.$(e);
 	}
 	O(e) {
 		return this._$AA.parentNode.insertBefore(e, this._$AB);
@@ -386,36 +386,36 @@ var ue = class {
 		this._$AH !== e && (this._$AR(), this._$AH = this.O(e));
 	}
 	_(e) {
-		this._$AH !== R && E(this._$AH) ? this._$AA.nextSibling.data = e : this.T(w.createTextNode(e)), this._$AH = e;
+		this._$AH !== I && k(this._$AH) ? this._$AA.nextSibling.data = e : this.T(D.createTextNode(e)), this._$AH = e;
 	}
 	$(e) {
-		let { values: t, _$litType$: n } = e, r = typeof n == "number" ? this._$AC(e) : (n.el === void 0 && (n.el = H.createElement(V(n.h, n.h[0]), this.options)), n);
+		let { values: t, _$litType$: n } = e, r = typeof n == "number" ? this._$AC(e) : (n.el === void 0 && (n.el = B.createElement(z(n.h, n.h[0]), this.options)), n);
 		if (this._$AH?._$AD === r) this._$AH.p(t);
 		else {
-			let e = new ue(r, this), n = e.u(this.options);
+			let e = new fe(r, this), n = e.u(this.options);
 			e.p(t), this.T(n), this._$AH = e;
 		}
 	}
 	_$AC(e) {
-		let t = z.get(e.strings);
-		return t === void 0 && z.set(e.strings, t = new H(e)), t;
+		let t = L.get(e.strings);
+		return t === void 0 && L.set(e.strings, t = new B(e)), t;
 	}
 	k(t) {
-		D(this._$AH) || (this._$AH = [], this._$AR());
+		A(this._$AH) || (this._$AH = [], this._$AR());
 		let n = this._$AH, r, i = 0;
-		for (let a of t) i === n.length ? n.push(r = new e(this.O(T()), this.O(T()), this, this.options)) : r = n[i], r._$AI(a), i++;
+		for (let a of t) i === n.length ? n.push(r = new e(this.O(O()), this.O(O()), this, this.options)) : r = n[i], r._$AI(a), i++;
 		i < n.length && (this._$AR(r && r._$AB.nextSibling, i), n.length = i);
 	}
 	_$AR(e = this._$AA.nextSibling, t) {
 		for (this._$AP?.(!1, !0, t); e !== this._$AB;) {
-			let t = y(e).nextSibling;
-			y(e).remove(), e = t;
+			let t = x(e).nextSibling;
+			x(e).remove(), e = t;
 		}
 	}
 	setConnected(e) {
 		this._$AM === void 0 && (this._$Cv = e, this._$AP?.(e));
 	}
-}, G = class {
+}, U = class {
 	get tagName() {
 		return this.element.tagName;
 	}
@@ -423,47 +423,47 @@ var ue = class {
 		return this._$AM._$AU;
 	}
 	constructor(e, t, n, r, i) {
-		this.type = 1, this._$AH = R, this._$AN = void 0, this.element = e, this.name = t, this._$AM = r, this.options = i, n.length > 2 || n[0] !== "" || n[1] !== "" ? (this._$AH = Array(n.length - 1).fill(/* @__PURE__ */ new String()), this.strings = n) : this._$AH = R;
+		this.type = 1, this._$AH = I, this._$AN = void 0, this.element = e, this.name = t, this._$AM = r, this.options = i, n.length > 2 || n[0] !== "" || n[1] !== "" ? (this._$AH = Array(n.length - 1).fill(/* @__PURE__ */ new String()), this.strings = n) : this._$AH = I;
 	}
 	_$AI(e, t = this, n, r) {
 		let i = this.strings, a = !1;
-		if (i === void 0) e = U(this, e, t, 0), a = !E(e) || e !== this._$AH && e !== L, a && (this._$AH = e);
+		if (i === void 0) e = V(this, e, t, 0), a = !k(e) || e !== this._$AH && e !== F, a && (this._$AH = e);
 		else {
 			let r = e, o, s;
-			for (e = i[0], o = 0; o < i.length - 1; o++) s = U(this, r[n + o], t, o), s === L && (s = this._$AH[o]), a ||= !E(s) || s !== this._$AH[o], s === R ? e = R : e !== R && (e += (s ?? "") + i[o + 1]), this._$AH[o] = s;
+			for (e = i[0], o = 0; o < i.length - 1; o++) s = V(this, r[n + o], t, o), s === F && (s = this._$AH[o]), a ||= !k(s) || s !== this._$AH[o], s === I ? e = I : e !== I && (e += (s ?? "") + i[o + 1]), this._$AH[o] = s;
 		}
 		a && !r && this.j(e);
 	}
 	j(e) {
-		e === R ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
+		e === I ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
 	}
-}, de = class extends G {
+}, pe = class extends U {
 	constructor() {
 		super(...arguments), this.type = 3;
 	}
 	j(e) {
-		this.element[this.name] = e === R ? void 0 : e;
+		this.element[this.name] = e === I ? void 0 : e;
 	}
-}, fe = class extends G {
+}, me = class extends U {
 	constructor() {
 		super(...arguments), this.type = 4;
 	}
 	j(e) {
-		this.element.toggleAttribute(this.name, !!e && e !== R);
+		this.element.toggleAttribute(this.name, !!e && e !== I);
 	}
-}, pe = class extends G {
+}, he = class extends U {
 	constructor(e, t, n, r, i) {
 		super(e, t, n, r, i), this.type = 5;
 	}
 	_$AI(e, t = this) {
-		if ((e = U(this, e, t, 0) ?? R) === L) return;
-		let n = this._$AH, r = e === R && n !== R || e.capture !== n.capture || e.once !== n.once || e.passive !== n.passive, i = e !== R && (n === R || r);
+		if ((e = V(this, e, t, 0) ?? I) === F) return;
+		let n = this._$AH, r = e === I && n !== I || e.capture !== n.capture || e.once !== n.once || e.passive !== n.passive, i = e !== I && (n === I || r);
 		r && this.element.removeEventListener(this.name, this, n), i && this.element.addEventListener(this.name, this, e), this._$AH = e;
 	}
 	handleEvent(e) {
 		typeof this._$AH == "function" ? this._$AH.call(this.options?.host ?? this.element, e) : this._$AH.handleEvent(e);
 	}
-}, me = class {
+}, ge = class {
 	constructor(e, t, n) {
 		this.element = e, this.type = 6, this._$AN = void 0, this._$AM = t, this.options = n;
 	}
@@ -471,18 +471,18 @@ var ue = class {
 		return this._$AM._$AU;
 	}
 	_$AI(e) {
-		U(this, e);
+		V(this, e);
 	}
-}, he = v.litHtmlPolyfillSupport;
-he?.(H, W), (v.litHtmlVersions ??= []).push("3.3.3");
-var ge = (e, t, n) => {
+}, _e = b.litHtmlPolyfillSupport;
+_e?.(B, H), (b.litHtmlVersions ??= []).push("3.3.3");
+var ve = (e, t, n) => {
 	let r = n?.renderBefore ?? t, i = r._$litPart$;
 	if (i === void 0) {
 		let e = n?.renderBefore ?? null;
-		r._$litPart$ = i = new W(t.insertBefore(T(), e), e, void 0, n ?? {});
+		r._$litPart$ = i = new H(t.insertBefore(O(), e), e, void 0, n ?? {});
 	}
 	return i._$AI(e), i;
-}, K = globalThis, q = class extends _ {
+}, W = globalThis, G = class extends y {
 	constructor() {
 		super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
 	}
@@ -492,7 +492,7 @@ var ge = (e, t, n) => {
 	}
 	update(e) {
 		let t = this.render();
-		this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(e), this._$Do = ge(t, this.renderRoot, this.renderOptions);
+		this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(e), this._$Do = ve(t, this.renderRoot, this.renderOptions);
 	}
 	connectedCallback() {
 		super.connectedCallback(), this._$Do?.setConnected(!0);
@@ -501,24 +501,24 @@ var ge = (e, t, n) => {
 		super.disconnectedCallback(), this._$Do?.setConnected(!1);
 	}
 	render() {
-		return L;
+		return F;
 	}
 };
-q._$litElement$ = !0, q.finalized = !0, K.litElementHydrateSupport?.({ LitElement: q });
-var _e = K.litElementPolyfillSupport;
-_e?.({ LitElement: q }), (K.litElementVersions ??= []).push("4.2.2");
+G._$litElement$ = !0, G.finalized = !0, W.litElementHydrateSupport?.({ LitElement: G });
+var ye = W.litElementPolyfillSupport;
+ye?.({ LitElement: G }), (W.litElementVersions ??= []).push("4.2.2");
 // node_modules/@lit/reactive-element/decorators/custom-element.js
-var ve = (e) => (t, n) => {
+var K = (e) => (t, n) => {
 	n === void 0 ? customElements.define(e, t) : n.addInitializer(() => {
 		customElements.define(e, t);
 	});
-}, ye = {
+}, be = {
 	attribute: !0,
 	type: String,
-	converter: m,
+	converter: g,
 	reflect: !1,
-	hasChanged: h
-}, be = (e = ye, t, n) => {
+	hasChanged: _
+}, xe = (e = be, t, n) => {
 	let { kind: r, metadata: i } = n, a = globalThis.litPropertyMetadata.get(i);
 	if (a === void 0 && globalThis.litPropertyMetadata.set(i, a = /* @__PURE__ */ new Map()), r === "setter" && ((e = Object.create(e)).wrapped = !0), a.set(n.name, e), r === "accessor") {
 		let { name: r } = n;
@@ -541,15 +541,15 @@ var ve = (e) => (t, n) => {
 	}
 	throw Error("Unsupported decorator location: " + r);
 };
-function J(e) {
-	return (t, n) => typeof n == "object" ? be(e, t, n) : ((e, t, n) => {
+function q(e) {
+	return (t, n) => typeof n == "object" ? xe(e, t, n) : ((e, t, n) => {
 		let r = t.hasOwnProperty(n);
 		return t.constructor.createProperty(n, e), r ? Object.getOwnPropertyDescriptor(t, n) : void 0;
 	})(e, t, n);
 }
 // node_modules/@lit/reactive-element/decorators/state.js
-function xe(e) {
-	return J({
+function J(e) {
+	return q({
 		...e,
 		state: !0,
 		attribute: !1
@@ -914,7 +914,29 @@ function Z(e, t, n, r) {
 	return i > 3 && a && Object.defineProperty(t, n, a), a;
 }
 // src/editor.ts
-var je = [
+var je = {
+	P1: 1,
+	P2: 2,
+	P3: 3,
+	P4: 4
+}, Me = [
+	{
+		value: "P1",
+		label: "P1 — Highest Priority (Top of Alert List)"
+	},
+	{
+		value: "P2",
+		label: "P2 — High Priority"
+	},
+	{
+		value: "P3",
+		label: "P3 — Medium Priority"
+	},
+	{
+		value: "P4",
+		label: "P4 — Low Priority"
+	}
+], Ne = [
 	{
 		value: "SECURE",
 		label: "SECURE (Green — Static Shield)"
@@ -931,7 +953,7 @@ var je = [
 		value: "CRITICAL",
 		label: "CRITICAL (Red — Slow Flash)"
 	}
-], Me = [
+], Pe = [
 	{
 		value: "equals",
 		label: "Equal (=) — Matches any selected state"
@@ -944,7 +966,32 @@ var je = [
 		value: "contains",
 		label: "Contains — State contains any selected value"
 	}
-], Ne = {
+], Fe = [
+	{
+		value: "dismiss",
+		label: "Dismiss Alert (Remove from active alerts list)"
+	},
+	{
+		value: "snooze_30m",
+		label: "Auto Delay / Snooze for 30 Minutes"
+	},
+	{
+		value: "more-info",
+		label: "Open Entity More-Info Dialog"
+	},
+	{
+		value: "toggle",
+		label: "Toggle Entity"
+	},
+	{
+		value: "none",
+		label: "No Action"
+	},
+	{
+		value: "custom",
+		label: "Custom Home Assistant Action / Service Call"
+	}
+], Ie = {
 	binary_sensor: [
 		"on",
 		"off",
@@ -1063,9 +1110,9 @@ var je = [
 		"heat_pump",
 		"gas"
 	]
-}, Q = class extends q {
+}, Q = class extends G {
 	constructor(...e) {
-		super(...e), this.defaultSchemaCache = /* @__PURE__ */ new Map(), this.ruleSchemaCache = /* @__PURE__ */ new Map(), this.serviceSchemaCache = /* @__PURE__ */ new Map(), this.cachedServiceOptions = [], this.computeLabel = (e) => e.label || e.name, this.computeHelper = (e) => e.helper || "";
+		super(...e), this.expandedRuleIndex = 0, this.defaultSchemaCache = /* @__PURE__ */ new Map(), this.ruleSchemaCache = /* @__PURE__ */ new Map(), this.conditionSchemaCache = /* @__PURE__ */ new Map(), this.serviceSchemaCache = /* @__PURE__ */ new Map(), this.cachedServiceOptions = [], this.computeLabel = (e) => e.label || e.name, this.computeHelper = (e) => e.helper || "";
 	}
 	connectedCallback() {
 		super.connectedCallback(), this.ensureHaComponentsLoaded();
@@ -1080,6 +1127,7 @@ var je = [
 		} catch {}
 	}
 	setConfig(e) {
+		let t = Array.isArray(e?.alerts) ? e.alerts.map((e) => ({ ...e })) : [];
 		this.config = {
 			...e,
 			show_default_alert: e?.show_default_alert ?? !0,
@@ -1089,7 +1137,25 @@ var je = [
 				icon: "mdi:shield-check",
 				...e?.default_alert || {}
 			},
-			alerts: Array.isArray(e?.alerts) ? e.alerts.map((e) => ({ ...e })) : []
+			alerts: t
+		}, this.expandedRuleIndex !== null && this.expandedRuleIndex >= 0 && this.expandedRuleIndex >= t.length && (this.expandedRuleIndex = t.length > 0 ? 0 : null);
+	}
+	toggleAccordion(e) {
+		this.expandedRuleIndex = this.expandedRuleIndex === e ? null : e;
+	}
+	sortAlertsByPriority(e, t) {
+		let n = e.map((e, t) => ({
+			rule: e,
+			idx: t
+		}));
+		n.sort((e, t) => {
+			let n = je[(e.rule.priority || "P2").toUpperCase()] ?? 2, r = je[(t.rule.priority || "P2").toUpperCase()] ?? 2;
+			return n === r ? e.idx - t.idx : n - r;
+		});
+		let r = t === void 0 ? this.expandedRuleIndex : n.findIndex((e) => e.idx === t);
+		return {
+			sorted: n.map((e) => e.rule),
+			newActiveIndex: r === -1 ? this.expandedRuleIndex : r
 		};
 	}
 	emitConfigChanged(e) {
@@ -1099,7 +1165,7 @@ var je = [
 			composed: !0
 		}));
 	}
-	normalizeRuleStates(e) {
+	normalizeConditionStates(e) {
 		let t = [];
 		return Array.isArray(e.states) && t.push(...e.states), Array.isArray(e.state) ? t.push(...e.state) : e.state !== void 0 && e.state !== null && String(e.state).trim() !== "" && t.push(e.state), Array.from(new Set(t.map((e) => String(e).trim()).filter((e) => e !== "")));
 	}
@@ -1143,6 +1209,12 @@ var je = [
 	isZeroDuration(e) {
 		return !e || !Number(e.days || 0) && !Number(e.hours || 0) && !Number(e.minutes || 0) && !Number(e.seconds || 0) && !Number(e.milliseconds || 0);
 	}
+	getTapBehaviorFromRule(e) {
+		if (!e.tap_action) return "more-info";
+		if (Array.isArray(e.tap_action)) return "custom";
+		let t = e.tap_action.action;
+		return t === "dismiss" ? "dismiss" : t === "snooze" || t === "snooze_30m" || t === "delay_30m" ? "snooze_30m" : t === "more-info" ? "more-info" : t === "toggle" ? "toggle" : t === "none" ? "none" : "custom";
+	}
 	getStateOptionsForEntity(e, t) {
 		let n = /* @__PURE__ */ new Set(), r = [], i = (e, t) => {
 			let i = String(e).trim();
@@ -1171,7 +1243,7 @@ var je = [
 			for (let e of t) if (Array.isArray(e)) for (let t of e) i(String(t));
 		}
 		let s = a.includes(".") ? a.split(".")[0] : "";
-		if (s && Ne[s]) for (let e of Ne[s]) i(e);
+		if (s && Ie[s]) for (let e of Ie[s]) i(e);
 		if ((s === "person" || s === "device_tracker") && this.hass?.states) for (let [e, t] of Object.entries(this.hass.states)) e.startsWith("zone.") && t?.attributes?.friendly_name && i(String(t.attributes.friendly_name));
 		for (let e of [
 			"on",
@@ -1203,7 +1275,7 @@ var je = [
 			label: "Default Banner Color / Template",
 			selector: { select: {
 				mode: "dropdown",
-				options: je
+				options: Ne
 			} }
 		}, {
 			name: "icon",
@@ -1215,13 +1287,21 @@ var je = [
 			selector: { entity: {} }
 		}), this.defaultSchemaCache.set(e, n), n;
 	}
-	getRuleSchema(e, t, n, r) {
-		let i = (e || "").trim(), a = this.getStateOptionsForEntity(i, n), o = a.map((e) => e.value).join("|"), s = `${i}::${t}::${r || ""}::${o}`, c = this.ruleSchemaCache.get(s);
-		if (c) return c;
-		let l = r ? `Trigger State(s) / Value(s) (Current: ${r})` : "Trigger State(s) / Value(s)", u = [
+	getRuleSchema(e, t, n, r, i) {
+		let a = (e || "").trim(), o = this.getStateOptionsForEntity(a, n), s = o.map((e) => e.value).join("|"), c = `${a}::${t}::${r}::${i || ""}::${s}`, l = this.ruleSchemaCache.get(c);
+		if (l) return l;
+		let u = i ? `Trigger State(s) / Value(s) (Current: ${i})` : "Trigger State(s) / Value(s)", d = [
+			{
+				name: "priority",
+				label: "Priority Level (Reorders alerts: P1 first -> P4 last)",
+				selector: { select: {
+					mode: "dropdown",
+					options: Me
+				} }
+			},
 			{
 				name: "entity",
-				label: "Entity (Search any sensor or entity)",
+				label: "Primary Entity (Search any sensor or entity)",
 				required: !0,
 				selector: { entity: {} }
 			},
@@ -1230,19 +1310,19 @@ var je = [
 				label: "State Match Condition",
 				selector: { select: {
 					mode: "dropdown",
-					options: Me
+					options: Pe
 				} }
 			},
 			{
 				name: "states",
-				label: l,
+				label: u,
 				helper: "Select one or more states, or type any custom value/text and press Enter",
 				required: !0,
 				selector: { select: {
 					multiple: !0,
 					custom_value: !0,
 					mode: "dropdown",
-					options: a
+					options: o
 				} }
 			},
 			{
@@ -1256,7 +1336,7 @@ var je = [
 				label: "Alert Template / Severity Color",
 				selector: { select: {
 					mode: "dropdown",
-					options: je
+					options: Ne
 				} }
 			},
 			{
@@ -1271,12 +1351,57 @@ var je = [
 				selector: { text: {} }
 			},
 			{
-				name: "tap_action",
-				label: "Tap Action",
-				selector: { ui_action: { default_action: "more-info" } }
+				name: "tap_behavior",
+				label: "On Tap Action (Dismiss, Delay 30m, More Info, etc.)",
+				selector: { select: {
+					mode: "dropdown",
+					options: Fe
+				} }
 			}
 		];
-		return this.ruleSchemaCache.set(s, u), u;
+		return r === "custom" && d.push({
+			name: "tap_action",
+			label: "Custom Tap Action Configuration",
+			selector: { ui_action: { default_action: "call-service" } }
+		}), this.ruleSchemaCache.set(c, d), d;
+	}
+	getConditionSchema(e, t, n) {
+		let r = (e || "").trim(), i = this.getStateOptionsForEntity(r, t), a = i.map((e) => e.value).join("|"), o = `${r}::${n || ""}::${a}`, s = this.conditionSchemaCache.get(o);
+		if (s) return s;
+		let c = n ? `Trigger State(s) / Value(s) (Current: ${n})` : "Trigger State(s) / Value(s)", l = [
+			{
+				name: "entity",
+				label: "AND Entity (Search any sensor or entity)",
+				required: !0,
+				selector: { entity: {} }
+			},
+			{
+				name: "operator",
+				label: "State Match Condition",
+				selector: { select: {
+					mode: "dropdown",
+					options: Pe
+				} }
+			},
+			{
+				name: "states",
+				label: c,
+				helper: "Select one or more states, or type any custom value/text and press Enter",
+				required: !0,
+				selector: { select: {
+					multiple: !0,
+					custom_value: !0,
+					mode: "dropdown",
+					options: i
+				} }
+			},
+			{
+				name: "for",
+				label: "Duration in State Before Matching (hh:mm:ss)",
+				selector: { duration: {} }
+			}
+		];
+		return this.conditionSchemaCache.set(o, l), l;
 	}
 	getServiceOptions() {
 		let e = this.hass?.services;
@@ -1365,50 +1490,113 @@ var je = [
 		if (t.stopPropagation(), !this.config) return;
 		let n = t.detail?.value;
 		if (!n) return;
-		let r = this.config.alerts.map((t, r) => {
+		let r = (this.config.alerts[e]?.priority || "P2").toUpperCase(), i = (n.priority || r).toUpperCase(), a = this.config.alerts.map((t, r) => {
 			if (r !== e) return t;
-			let i = Array.isArray(n.states) ? n.states.map((e) => String(e).trim()).filter(Boolean) : n.states !== void 0 && String(n.states).trim() !== "" ? [String(n.states).trim()] : [], a = {
+			let a = Array.isArray(n.states) ? n.states.map((e) => String(e).trim()).filter(Boolean) : n.states !== void 0 && String(n.states).trim() !== "" ? [String(n.states).trim()] : [], o = {
 				...t,
+				priority: i,
 				entity: n.entity ?? t.entity ?? "",
 				operator: n.operator || t.operator || "equals",
-				state: i.length === 1 ? i[0] : i,
+				state: a.length === 1 ? a[0] : a,
 				template: (n.template || t.template || "INFO").toUpperCase(),
 				message: n.message ?? t.message ?? ""
 			};
-			return delete a.states, n.for && !this.isZeroDuration(n.for) ? a.for = {
+			delete o.states, n.for && !this.isZeroDuration(n.for) ? o.for = {
 				hours: Number(n.for.hours || 0),
 				minutes: Number(n.for.minutes || 0),
 				seconds: Number(n.for.seconds || 0)
-			} : (delete a.for, delete a.duration), n.icon && n.icon.trim() !== "" ? a.icon = n.icon.trim() : delete a.icon, n.tap_action && !Array.isArray(t.tap_action) && (a.tap_action = n.tap_action), a;
-		});
+			} : (delete o.for, delete o.duration), n.icon && n.icon.trim() !== "" ? o.icon = n.icon.trim() : delete o.icon;
+			let s = n.tap_behavior || this.getTapBehaviorFromRule(t);
+			return s === "dismiss" ? o.tap_action = { action: "dismiss" } : s === "snooze_30m" ? o.tap_action = {
+				action: "snooze_30m",
+				snooze_minutes: 30
+			} : s === "more-info" ? o.tap_action = { action: "more-info" } : s === "toggle" ? o.tap_action = { action: "toggle" } : s === "none" ? o.tap_action = { action: "none" } : s === "custom" && (n.tap_action && !Array.isArray(t.tap_action) ? o.tap_action = n.tap_action : t.tap_action && t.tap_action.action !== "dismiss" && t.tap_action.action !== "snooze_30m" || (o.tap_action = { action: "call-service" })), o;
+		}), o = a;
+		if (i !== r) {
+			let { sorted: t, newActiveIndex: n } = this.sortAlertsByPriority(a, e);
+			o = t, this.expandedRuleIndex = n;
+		}
 		this.emitConfigChanged({
+			...this.config,
+			type: this.config.type || "custom:guardian-alerts-card",
+			alerts: o
+		});
+	}
+	addRule() {
+		if (!this.config) return;
+		let e = this.config.alerts || [], t = {
+			priority: "P2",
+			entity: "",
+			state: [],
+			operator: "equals",
+			template: "WARNING",
+			message: "New Guardian Alert",
+			tap_action: { action: "dismiss" }
+		}, n = [...e, t], { sorted: r, newActiveIndex: i } = this.sortAlertsByPriority(n, n.length - 1);
+		this.expandedRuleIndex = i, this.emitConfigChanged({
 			...this.config,
 			type: this.config.type || "custom:guardian-alerts-card",
 			alerts: r
 		});
 	}
-	addRule() {
-		if (!this.config) return;
-		let e = this.config.alerts || [];
-		this.emitConfigChanged({
+	removeRule(e, t) {
+		if (t.stopPropagation(), !this.config) return;
+		let n = this.config.alerts.filter((t, n) => n !== e);
+		this.expandedRuleIndex === e ? this.expandedRuleIndex = n.length > 0 ? 0 : null : this.expandedRuleIndex !== null && this.expandedRuleIndex > e && --this.expandedRuleIndex, this.emitConfigChanged({
 			...this.config,
 			type: this.config.type || "custom:guardian-alerts-card",
-			alerts: [...e, {
-				entity: "",
-				state: [],
-				operator: "equals",
-				template: "WARNING",
-				message: "New Guardian Alert"
-			}]
+			alerts: n
 		});
 	}
-	removeRule(e) {
+	addAndCondition(e) {
 		if (!this.config) return;
-		let t = this.config.alerts.filter((t, n) => n !== e);
+		let t = this.config.alerts[e], n = Array.isArray(t.conditions) ? [...t.conditions] : [], r = this.config.alerts.map((t, r) => r === e ? {
+			...t,
+			conditions: [...n, {
+				entity: "",
+				operator: "equals",
+				state: []
+			}]
+		} : t);
 		this.emitConfigChanged({
 			...this.config,
-			type: this.config.type || "custom:guardian-alerts-card",
-			alerts: t
+			alerts: r
+		});
+	}
+	onAndConditionFormChanged(e, t, n) {
+		if (n.stopPropagation(), !this.config) return;
+		let r = n.detail?.value;
+		if (!r) return;
+		let i = this.config.alerts[e], a = (Array.isArray(i.conditions) ? i.conditions : []).map((e, n) => {
+			if (n !== t) return e;
+			let i = Array.isArray(r.states) ? r.states.map((e) => String(e).trim()).filter(Boolean) : r.states !== void 0 && String(r.states).trim() !== "" ? [String(r.states).trim()] : [], a = {
+				entity: r.entity ?? e.entity ?? "",
+				operator: r.operator || e.operator || "equals",
+				state: i.length === 1 ? i[0] : i
+			};
+			return r.for && !this.isZeroDuration(r.for) && (a.for = {
+				hours: Number(r.for.hours || 0),
+				minutes: Number(r.for.minutes || 0),
+				seconds: Number(r.for.seconds || 0)
+			}), a;
+		}), o = this.config.alerts.map((t, n) => n === e ? {
+			...t,
+			conditions: a
+		} : t);
+		this.emitConfigChanged({
+			...this.config,
+			alerts: o
+		});
+	}
+	removeAndCondition(e, t) {
+		if (!this.config) return;
+		let n = (this.config.alerts[e].conditions || []).filter((e, n) => n !== t), r = this.config.alerts.map((t, r) => r === e ? {
+			...t,
+			conditions: n.length > 0 ? n : void 0
+		} : t);
+		this.emitConfigChanged({
+			...this.config,
+			alerts: r
 		});
 	}
 	normalizeOnActiveList(e) {
@@ -1473,108 +1661,208 @@ var je = [
 		});
 	}
 	render() {
-		if (!this.config) return R;
-		let e = this.config.show_default_alert !== !1, t = {
+		if (!this.config) return I;
+		let e = this.config.show_default_alert !== !1, t = this.expandedRuleIndex === -1, n = {
 			show_default_alert: e,
 			message: this.config.default_alert?.message ?? "All Secured",
 			template: (this.config.default_alert?.template || "SECURE").toUpperCase(),
 			icon: this.config.default_alert?.icon || "mdi:shield-check",
 			entity: this.config.default_alert?.entity || ""
 		};
-		return I`
+		return P`
       <div class="editor-container">
-        <!-- Default "All Secured" Banner Section -->
+        <!-- Default "All Secured" Rule Card (Collapsible) -->
         <div class="rule-card secure-card">
-          <div class="rule-header">
-            <span class="rule-title">🛡️ Default Rule (When All Secured)</span>
+          <div
+            class="rule-header clickable"
+            @click=${() => this.toggleAccordion(-1)}
+          >
+            <div class="rule-header-left">
+              <span class="priority-pill priority-secure">DEFAULT</span>
+              <span class="rule-title">
+                🛡️ ${n.message || "All Secured"} (${e ? "Enabled" : "Disabled"})
+              </span>
+            </div>
+            <div class="rule-header-actions">
+              <button
+                type="button"
+                class="btn-collapse"
+                title=${t ? "Collapse" : "Expand"}
+              >
+                <span class="chevron ${t ? "open" : ""}">▼</span>
+              </button>
+            </div>
           </div>
-          <ha-form
-            .hass=${this.hass}
-            .data=${t}
-            .schema=${this.getDefaultAlertSchema(e)}
-            .computeLabel=${this.computeLabel}
-            .computeHelper=${this.computeHelper}
-            @value-changed=${(e) => this.onDefaultAlertFormChanged(e)}
-          ></ha-form>
+
+          ${t ? P`
+                <div class="rule-body">
+                  <ha-form
+                    .hass=${this.hass}
+                    .data=${n}
+                    .schema=${this.getDefaultAlertSchema(e)}
+                    .computeLabel=${this.computeLabel}
+                    .computeHelper=${this.computeHelper}
+                    @value-changed=${(e) => this.onDefaultAlertFormChanged(e)}
+                  ></ha-form>
+                </div>
+              ` : I}
         </div>
 
-        <!-- Alert Rules Section -->
+        <!-- Collapsible Alert Rules List (Only 1 open at a time) -->
         ${this.config.alerts.map((e, t) => {
-			let n = Y(e.template || e.severity), r = this.normalizeOnActiveList(e), i = this.normalizeRuleStates(e), a = e.entity ? this.hass?.states?.[e.entity] : void 0, o = a?.attributes?.unit_of_measurement, s = a?.state === void 0 ? void 0 : `${a.state}${o ? ` ${o}` : ""}`, c = {
+			let n = this.expandedRuleIndex === t, r = (e.priority || "P2").toUpperCase(), i = Y(e.template || e.severity), a = this.normalizeOnActiveList(e), o = Array.isArray(e.conditions) ? e.conditions : [], s = this.normalizeConditionStates(e), c = this.getTapBehaviorFromRule(e), l = e.entity ? this.hass?.states?.[e.entity] : void 0, u = l?.attributes?.unit_of_measurement, d = l?.state === void 0 ? void 0 : `${l.state}${u ? ` ${u}` : ""}`, f = {
+				priority: r,
 				entity: e.entity || "",
 				operator: e.operator || "equals",
-				states: i,
+				states: s,
 				for: this.normalizeDurationObject(e.for ?? e.duration),
 				template: (e.template || e.severity || "INFO").toUpperCase(),
 				icon: e.icon || "",
 				message: e.message || "",
-				tap_action: Array.isArray(e.tap_action) ? { action: "more-info" } : e.tap_action || { action: "more-info" }
+				tap_behavior: c,
+				tap_action: Array.isArray(e.tap_action) ? { action: "call-service" } : e.tap_action || { action: "call-service" }
 			};
-			return I`
-            <div class="rule-card">
-              <div class="rule-header">
-                <span class="rule-title">Alert Rule #${t + 1} (${n.name})</span>
-                <button
-                  type="button"
-                  class="btn-danger"
-                  @click=${() => this.removeRule(t)}
-                >
-                  Remove Rule
-                </button>
-              </div>
-
-              <ha-form
-                .hass=${this.hass}
-                .data=${c}
-                .schema=${this.getRuleSchema(e.entity, n.defaultIcon, i, s)}
-                .computeLabel=${this.computeLabel}
-                .computeHelper=${this.computeHelper}
-                @value-changed=${(e) => this.onRuleFormChanged(t, e)}
-              ></ha-form>
-
-              <div class="services-section">
-                <div class="services-header">
-                  <span>On-Active Service Calls (${r.length})</span>
+			return P`
+            <div class="rule-card ${n ? "expanded" : "collapsed"}">
+              <div
+                class="rule-header clickable"
+                @click=${() => this.toggleAccordion(t)}
+              >
+                <div class="rule-header-left">
+                  <span class="priority-pill priority-${r.toLowerCase()}">${r}</span>
+                  <div class="rule-summary">
+                    <span class="rule-title">
+                      ${e.message || `Alert Rule #${t + 1}`} (${i.name})
+                    </span>
+                    <span class="rule-subtitle">
+                      ${e.entity || "No entity selected"}
+                      ${s.length > 0 ? ` · [${s.join(", ")}]` : ""}
+                      ${o.length > 0 ? ` · +${o.length} AND` : ""}
+                    </span>
+                  </div>
+                </div>
+                <div class="rule-header-actions">
                   <button
                     type="button"
-                    class="btn-secondary"
-                    @click=${() => this.addOnActiveService(t)}
+                    class="btn-danger-sm"
+                    title="Remove Rule"
+                    @click=${(e) => this.removeRule(t, e)}
                   >
-                    + Add Service Call
+                    Remove
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-collapse"
+                    title=${n ? "Collapse rule" : "Expand rule"}
+                  >
+                    <span class="chevron ${n ? "open" : ""}">▼</span>
                   </button>
                 </div>
+              </div>
 
-                ${r.map((e, n) => {
+              ${n ? P`
+                    <div class="rule-body">
+                      <ha-form
+                        .hass=${this.hass}
+                        .data=${f}
+                        .schema=${this.getRuleSchema(e.entity, i.defaultIcon, s, c, d)}
+                        .computeLabel=${this.computeLabel}
+                        .computeHelper=${this.computeHelper}
+                        @value-changed=${(e) => this.onRuleFormChanged(t, e)}
+                      ></ha-form>
+
+                      <!-- Additional AND Conditions Section -->
+                      <div class="services-section">
+                        <div class="services-header">
+                          <span>Additional AND Conditions (${o.length})</span>
+                          <button
+                            type="button"
+                            class="btn-secondary"
+                            @click=${() => this.addAndCondition(t)}
+                          >
+                            + Add AND Condition
+                          </button>
+                        </div>
+
+                        ${o.map((e, n) => {
+				let r = this.normalizeConditionStates(e), i = e.entity ? this.hass?.states?.[e.entity] : void 0, a = i?.attributes?.unit_of_measurement, o = i?.state === void 0 ? void 0 : `${i.state}${a ? ` ${a}` : ""}`, s = {
+					entity: e.entity || "",
+					operator: e.operator || "equals",
+					states: r,
+					for: this.normalizeDurationObject(e.for ?? e.duration)
+				};
+				return P`
+                            <div class="service-card">
+                              <div class="service-card-header">
+                                <span>AND Condition #${n + 1}</span>
+                                <button
+                                  type="button"
+                                  class="btn-danger-sm"
+                                  title="Remove AND Condition"
+                                  @click=${() => this.removeAndCondition(t, n)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              <ha-form
+                                .hass=${this.hass}
+                                .data=${s}
+                                .schema=${this.getConditionSchema(e.entity, r, o)}
+                                .computeLabel=${this.computeLabel}
+                                .computeHelper=${this.computeHelper}
+                                @value-changed=${(e) => this.onAndConditionFormChanged(t, n, e)}
+                              ></ha-form>
+                            </div>
+                          `;
+			})}
+                      </div>
+
+                      <!-- On-Active Service Calls Section -->
+                      <div class="services-section">
+                        <div class="services-header">
+                          <span>On-Active Service Calls (${a.length})</span>
+                          <button
+                            type="button"
+                            class="btn-secondary"
+                            @click=${() => this.addOnActiveService(t)}
+                          >
+                            + Add Service Call
+                          </button>
+                        </div>
+
+                        ${a.map((e, n) => {
 				let r = {
 					service: e.service || "",
 					target: e.target || {},
 					message: e.service_data?.message ?? ""
 				};
-				return I`
-                    <div class="service-card">
-                      <div class="service-card-header">
-                        <span>Service Call #${n + 1}</span>
-                        <button
-                          type="button"
-                          class="btn-danger-sm"
-                          title="Remove Service Call"
-                          @click=${() => this.removeOnActiveService(t, n)}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                      <ha-form
-                        .hass=${this.hass}
-                        .data=${r}
-                        .schema=${this.getServiceCallSchema(e.service)}
-                        .computeLabel=${this.computeLabel}
-                        .computeHelper=${this.computeHelper}
-                        @value-changed=${(e) => this.onServiceCallFormChanged(t, n, e)}
-                      ></ha-form>
-                    </div>
-                  `;
+				return P`
+                            <div class="service-card">
+                              <div class="service-card-header">
+                                <span>Service Call #${n + 1}</span>
+                                <button
+                                  type="button"
+                                  class="btn-danger-sm"
+                                  title="Remove Service Call"
+                                  @click=${() => this.removeOnActiveService(t, n)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              <ha-form
+                                .hass=${this.hass}
+                                .data=${r}
+                                .schema=${this.getServiceCallSchema(e.service)}
+                                .computeLabel=${this.computeLabel}
+                                .computeHelper=${this.computeHelper}
+                                @value-changed=${(e) => this.onServiceCallFormChanged(t, n, e)}
+                              ></ha-form>
+                            </div>
+                          `;
 			})}
-              </div>
+                      </div>
+                    </div>
+                  ` : I}
             </div>
           `;
 		})}
@@ -1590,7 +1878,7 @@ var je = [
     .editor-container {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
       padding: 8px 0;
       color: var(--primary-text-color, #f3f4f6);
     }
@@ -1599,22 +1887,142 @@ var je = [
       background: var(--secondary-background-color, rgba(255, 255, 255, 0.04));
       border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.12));
       border-radius: 12px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+      overflow: hidden;
+      transition: border-color 0.2s ease;
+    }
+
+    .rule-card.expanded {
+      border-color: var(--primary-color, #38bdf8);
     }
 
     .secure-card {
-      border-color: color-mix(in srgb, var(--success-color, #22c55e) 40%, var(--divider-color, rgba(255, 255, 255, 0.12)));
+      border-color: color-mix(
+        in srgb,
+        var(--success-color, #22c55e) 40%,
+        var(--divider-color, rgba(255, 255, 255, 0.12))
+      );
     }
 
     .rule-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      user-select: none;
+    }
+
+    .rule-header.clickable {
+      cursor: pointer;
+    }
+
+    .rule-header.clickable:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .rule-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .rule-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .rule-title {
       font-weight: 700;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .rule-subtitle {
+      font-size: 0.76rem;
+      color: var(--secondary-text-color, #9ca3af);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .rule-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .priority-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      flex-shrink: 0;
+    }
+
+    .priority-p1 {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.45);
+    }
+
+    .priority-p2 {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+    }
+
+    .priority-p3 {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.45);
+    }
+
+    .priority-p4 {
+      background: rgba(148, 163, 184, 0.2);
+      color: #cbd5e1;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+
+    .priority-secure {
+      background: rgba(34, 197, 94, 0.2);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.45);
+    }
+
+    .btn-collapse {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--primary-text-color, #f3f4f6);
+      padding: 5px 9px;
+      border-radius: 6px;
+    }
+
+    .chevron {
+      display: inline-block;
+      font-size: 0.75rem;
+      transition: transform 0.2s ease;
+    }
+
+    .chevron.open {
+      transform: rotate(180deg);
+    }
+
+    .rule-body {
+      padding: 4px 16px 16px 16px;
+      border-top: 1px solid var(--divider-color, rgba(255, 255, 255, 0.08));
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
     }
 
     .services-section {
@@ -1675,12 +2083,6 @@ var je = [
       border: 1px solid rgba(56, 189, 248, 0.35);
     }
 
-    .btn-danger {
-      background: rgba(239, 68, 68, 0.15);
-      color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.35);
-    }
-
     .btn-danger-sm {
       background: rgba(239, 68, 68, 0.15);
       color: #f87171;
@@ -1689,22 +2091,37 @@ var je = [
   `;
 	}
 };
-Z([J({ attribute: !1 })], Q.prototype, "hass", void 0), Z([xe()], Q.prototype, "config", void 0), Q = Z([ve("guardian-alerts-card-editor")], Q), window.customCards = window.customCards || [], window.customCards.some((e) => e.type === "guardian-alerts-card") || window.customCards.push({
+Z([q({ attribute: !1 })], Q.prototype, "hass", void 0), Z([J()], Q.prototype, "config", void 0), Z([J()], Q.prototype, "expandedRuleIndex", void 0), Q = Z([K("guardian-alerts-card-editor")], Q);
+// src/guardian-alerts-card.ts
+var Le = {
+	P1: 1,
+	P2: 2,
+	P3: 3,
+	P4: 4
+};
+window.customCards = window.customCards || [], window.customCards.some((e) => e.type === "guardian-alerts-card") || window.customCards.push({
 	type: "guardian-alerts-card",
 	name: "Guardian Alerts Card",
-	description: "Origami-styled security & status alert banners with slow flashing and multi-service actions.",
+	description: "Origami-styled security & status alert banners with slow flashing, AND conditions, priority sorting, and multi-service actions.",
 	preview: !0
 });
-var $ = class extends q {
+var $ = class extends G {
 	constructor(...e) {
-		super(...e), this.isHolding = !1, this.activeRuleKeys = /* @__PURE__ */ new Set(), this.matchedSinceMap = /* @__PURE__ */ new Map(), this.durationTimers = /* @__PURE__ */ new Map(), this.hasInitializedStates = !1;
+		super(...e), this.isHolding = !1, this.activeRuleKeys = /* @__PURE__ */ new Set(), this.matchedSinceMap = /* @__PURE__ */ new Map(), this.durationTimers = /* @__PURE__ */ new Map(), this.dismissedRuleKeys = /* @__PURE__ */ new Set(), this.snoozedUntilMap = /* @__PURE__ */ new Map(), this.snoozeTimers = /* @__PURE__ */ new Map(), this.hasInitializedStates = !1;
 	}
 	disconnectedCallback() {
-		super.disconnectedCallback(), this.clearAllDurationTimers();
+		super.disconnectedCallback(), this.clearAllTimers();
 	}
-	clearAllDurationTimers() {
+	clearAllTimers() {
 		for (let e of this.durationTimers.values()) window.clearTimeout(e);
 		this.durationTimers.clear();
+		for (let e of this.snoozeTimers.values()) window.clearTimeout(e);
+		this.snoozeTimers.clear();
+	}
+	clearSnoozeForRule(e) {
+		this.snoozedUntilMap.delete(e);
+		let t = this.snoozeTimers.get(e);
+		t !== void 0 && (window.clearTimeout(t), this.snoozeTimers.delete(e));
 	}
 	static getConfigElement() {
 		return document.createElement("guardian-alerts-card-editor");
@@ -1722,17 +2139,19 @@ var $ = class extends q {
 				entity: "",
 				state: [],
 				operator: "equals",
+				priority: "P1",
 				template: "WARNING",
-				message: "Guardian Alert Triggered"
+				message: "Guardian Alert Triggered",
+				tap_action: { action: "dismiss" }
 			}]
 		};
 	}
 	setConfig(e) {
 		if (!e) throw Error("Invalid configuration");
-		this.clearAllDurationTimers(), this.config = {
+		this.clearAllTimers(), this.config = {
 			...e,
 			alerts: Array.isArray(e.alerts) ? e.alerts : []
-		}, this.activeRuleKeys.clear(), this.matchedSinceMap.clear(), this.hasInitializedStates = !1;
+		}, this.activeRuleKeys.clear(), this.matchedSinceMap.clear(), this.dismissedRuleKeys.clear(), this.snoozedUntilMap.clear(), this.hasInitializedStates = !1;
 	}
 	getTargetStates(e) {
 		let t = [];
@@ -1767,9 +2186,12 @@ var $ = class extends q {
 		}
 		return 0;
 	}
+	getConditionSignature(e) {
+		let t = this.getTargetStates(e).map((e) => e.toLowerCase()).join("|"), n = e.operator || "equals", r = this.parseDurationMs(e.for ?? e.duration);
+		return `${e.entity || ""}:${n}:${t}:${r}`;
+	}
 	getRuleKey(e, t) {
-		let n = this.getTargetStates(e).map((e) => e.toLowerCase()).join("|"), r = e.operator || "equals", i = this.parseDurationMs(e.for ?? e.duration);
-		return `${t}:${e.entity || ""}:${r}:${n}:${i}`;
+		return `${t}::${this.getConditionSignature(e)}::${(e.conditions || []).map((e) => this.getConditionSignature(e)).join("&&")}`;
 	}
 	matchesSingleExpected(e, t, n) {
 		if (n === "contains") return e.toLowerCase().includes(t.toLowerCase());
@@ -1790,7 +2212,7 @@ var $ = class extends q {
 		let i = Number(e), a = Number(t);
 		return e !== "" && !Number.isNaN(i) && !Number.isNaN(a) ? i === a : e.toLowerCase() === t.toLowerCase();
 	}
-	doesStateMatch(e) {
+	doesConditionStateMatch(e) {
 		if (!e.entity) return !1;
 		let t = this.getTargetStates(e);
 		if (t.length === 0) return !1;
@@ -1799,30 +2221,42 @@ var $ = class extends q {
 		let r = String(n.state).trim(), i = e.operator || "equals";
 		return i === "not_equals" ? t.every((e) => !this.matchesSingleExpected(r, e, "equals")) : i === "contains" ? t.some((e) => this.matchesSingleExpected(r, e, "contains")) : t.some((e) => this.matchesSingleExpected(r, e, "equals"));
 	}
-	isRuleActive(e, t) {
-		let n = this.getRuleKey(e, t);
-		if (!this.doesStateMatch(e)) {
-			this.matchedSinceMap.delete(n);
-			let e = this.durationTimers.get(n);
-			return e !== void 0 && (window.clearTimeout(e), this.durationTimers.delete(n)), !1;
+	isSingleConditionActive(e, t) {
+		if (!this.doesConditionStateMatch(e)) {
+			this.matchedSinceMap.delete(t);
+			let e = this.durationTimers.get(t);
+			return e !== void 0 && (window.clearTimeout(e), this.durationTimers.delete(t)), !1;
 		}
-		let r = this.parseDurationMs(e.for ?? e.duration);
-		if (r <= 0) return !0;
-		let i = this.matchedSinceMap.get(n);
-		if (i === void 0) {
-			let t = this.hass?.states?.[e.entity], r = t?.last_changed ? Date.parse(t.last_changed) : NaN;
-			i = !this.hasInitializedStates && !Number.isNaN(r) && r <= Date.now() || !Number.isNaN(r) && Math.abs(Date.now() - r) < 2e3 ? r : Date.now(), this.matchedSinceMap.set(n, i);
+		let n = this.parseDurationMs(e.for ?? e.duration);
+		if (n <= 0) return !0;
+		let r = this.matchedSinceMap.get(t);
+		if (r === void 0) {
+			let n = this.hass?.states?.[e.entity], i = n?.last_changed ? Date.parse(n.last_changed) : NaN;
+			r = !this.hasInitializedStates && !Number.isNaN(i) && i <= Date.now() || !Number.isNaN(i) && Math.abs(Date.now() - i) < 2e3 ? i : Date.now(), this.matchedSinceMap.set(t, r);
 		}
-		let a = Date.now() - i;
-		if (a >= r) {
-			let e = this.durationTimers.get(n);
-			return e !== void 0 && (window.clearTimeout(e), this.durationTimers.delete(n)), !0;
+		let i = Date.now() - r;
+		if (i >= n) {
+			let e = this.durationTimers.get(t);
+			return e !== void 0 && (window.clearTimeout(e), this.durationTimers.delete(t)), !0;
 		}
-		if (!this.durationTimers.has(n)) {
-			let e = Math.max(20, r - a + 25), t = window.setTimeout(() => {
-				this.durationTimers.delete(n), this.evaluateAndTriggerRules(), this.requestUpdate();
+		if (!this.durationTimers.has(t)) {
+			let e = Math.max(20, n - i + 25), r = window.setTimeout(() => {
+				this.durationTimers.delete(t), this.evaluateAndTriggerRules(), this.requestUpdate();
 			}, e);
-			this.durationTimers.set(n, t);
+			this.durationTimers.set(t, r);
+		}
+		return !1;
+	}
+	isRuleActive(e, t) {
+		let n = this.getRuleKey(e, t), r = this.isSingleConditionActive(e, `${n}::primary`), i = (e.conditions || []).filter((e) => !!(e?.entity && this.getTargetStates(e).length > 0)).map((e, t) => this.isSingleConditionActive(e, `${n}::and_${t}`));
+		return r && i.every(Boolean);
+	}
+	isRuleSuppressed(e) {
+		if (this.dismissedRuleKeys.has(e)) return !0;
+		let t = this.snoozedUntilMap.get(e);
+		if (t !== void 0) {
+			if (Date.now() < t) return !0;
+			this.clearSnoozeForRule(e);
 		}
 		return !1;
 	}
@@ -1831,12 +2265,12 @@ var $ = class extends q {
 		let e = /* @__PURE__ */ new Set();
 		(this.config.alerts || []).forEach((t, n) => {
 			let r = this.getRuleKey(t, n);
-			this.isRuleActive(t, n) && (e.add(r), this.hasInitializedStates && !this.activeRuleKeys.has(r) && t.on_active && X({
+			this.isRuleActive(t, n) ? (e.add(r), this.hasInitializedStates && !this.activeRuleKeys.has(r) && t.on_active && X({
 				hass: this.hass,
 				config: t.on_active,
 				defaultEntity: t.entity,
 				defaultMessage: this.formatMessage(t)
-			}));
+			})) : (this.dismissedRuleKeys.delete(r), this.clearSnoozeForRule(r));
 		}), this.activeRuleKeys = e, this.hasInitializedStates = !0;
 	}
 	formatMessage(e) {
@@ -1848,62 +2282,87 @@ var $ = class extends q {
 	updated(e) {
 		super.updated(e), this.hass && this.config && (e.has("hass") || e.has("config")) && this.evaluateAndTriggerRules();
 	}
-	onPointerDown(e) {
-		this.isHolding = !1, this.holdTimeout = window.setTimeout(() => {
-			this.isHolding = !0, X({
-				hass: this.hass,
-				config: e.hold_action || { action: "more-info" },
-				defaultEntity: e.entity,
-				defaultMessage: this.formatMessage(e)
-			});
-		}, 500);
-	}
-	onPointerUp(e) {
-		clearTimeout(this.holdTimeout), this.isHolding || X({
+	executeRuleInteraction(e, t, n) {
+		let r = n || { action: "more-info" };
+		if (!Array.isArray(r) && t !== null) {
+			let n = r.action, i = this.getRuleKey(e, t);
+			if (n === "dismiss") {
+				this.dismissedRuleKeys.add(i), this.requestUpdate();
+				return;
+			}
+			if (n === "snooze" || n === "snooze_30m" || n === "delay_30m") {
+				let e = Number(r.snooze_minutes || 30), t = Math.max(1e3, e * 60 * 1e3);
+				this.clearSnoozeForRule(i), this.snoozedUntilMap.set(i, Date.now() + t);
+				let n = window.setTimeout(() => {
+					this.snoozeTimers.delete(i), this.snoozedUntilMap.delete(i), this.requestUpdate();
+				}, t + 50);
+				this.snoozeTimers.set(i, n), this.requestUpdate();
+				return;
+			}
+		}
+		X({
 			hass: this.hass,
-			config: e.tap_action || { action: "more-info" },
+			config: r,
 			defaultEntity: e.entity,
 			defaultMessage: this.formatMessage(e)
 		});
+	}
+	onPointerDown(e, t) {
+		this.isHolding = !1, this.holdTimeout = window.setTimeout(() => {
+			this.isHolding = !0, this.executeRuleInteraction(e, t, e.hold_action || { action: "more-info" });
+		}, 500);
+	}
+	onPointerUp(e, t) {
+		clearTimeout(this.holdTimeout), this.isHolding || this.executeRuleInteraction(e, t, e.tap_action || { action: "more-info" });
 	}
 	onPointerCancel() {
 		clearTimeout(this.holdTimeout), this.isHolding = !1;
 	}
 	render() {
-		if (!this.hass || !this.config) return R;
-		let e = (this.config.alerts || []).filter((e, t) => this.isRuleActive(e, t));
+		if (!this.hass || !this.config) return I;
+		let e = (this.config.alerts || []).map((e, t) => ({
+			rule: e,
+			index: t,
+			key: this.getRuleKey(e, t)
+		})).filter(({ rule: e, index: t, key: n }) => this.isRuleActive(e, t) && !this.isRuleSuppressed(n)).sort((e, t) => {
+			let n = Le[(e.rule.priority || "P2").toUpperCase()] ?? 2, r = Le[(t.rule.priority || "P2").toUpperCase()] ?? 2;
+			return n === r ? e.index - t.index : n - r;
+		});
 		if (e.length === 0) {
-			if (this.config.show_default_alert === !1) return R;
+			if (this.config.show_default_alert === !1) return I;
 			let t = this.config.default_alert;
 			e = [{
-				entity: t?.entity || this.config.alerts?.[0]?.entity || "",
-				state: "",
-				template: t?.template || "SECURE",
-				message: t?.message || "All Secured",
-				icon: t?.icon || "mdi:shield-check",
-				icon_color: t?.icon_color,
-				tap_action: t?.tap_action || (t?.entity ? { action: "more-info" } : { action: "none" }),
-				hold_action: t?.hold_action || (t?.entity ? { action: "more-info" } : { action: "none" })
+				index: null,
+				rule: {
+					entity: t?.entity || this.config.alerts?.[0]?.entity || "",
+					state: "",
+					template: t?.template || "SECURE",
+					message: t?.message || "All Secured",
+					icon: t?.icon || "mdi:shield-check",
+					icon_color: t?.icon_color,
+					tap_action: t?.tap_action || (t?.entity ? { action: "more-info" } : { action: "none" }),
+					hold_action: t?.hold_action || (t?.entity ? { action: "more-info" } : { action: "none" })
+				}
 			}];
 		}
-		return I`
+		return P`
       <div class="card-container">
-        ${e.map((e) => {
-			let t = Y(e.template || e.severity), n = e.icon?.trim() || t.defaultIcon;
-			return I`
+        ${e.map(({ rule: e, index: t }) => {
+			let n = Y(e.template || e.severity), r = e.icon?.trim() || n.defaultIcon, i = t === null ? null : (e.priority || "P2").toUpperCase(), a = i ? `${i} · ${n.name}` : n.name;
+			return P`
             <div class="banner-wrapper">
               <div
-                class="banner template-${t.name.toLowerCase()}"
+                class="banner template-${n.name.toLowerCase()}"
                 style=${e.icon_color ? `--custom-icon-color: ${e.icon_color};` : ""}
-                @pointerdown=${() => this.onPointerDown(e)}
-                @pointerup=${() => this.onPointerUp(e)}
+                @pointerdown=${() => this.onPointerDown(e, t)}
+                @pointerup=${() => this.onPointerUp(e, t)}
                 @pointercancel=${() => this.onPointerCancel()}
               >
                 <div class="icon-wrap">
-                  <ha-icon .icon="${n}"></ha-icon>
+                  <ha-icon .icon="${r}"></ha-icon>
                 </div>
                 <div class="content">
-                  <span class="badge">${t.name}</span>
+                  <span class="badge">${a}</span>
                   <span class="message">${this.formatMessage(e)}</span>
                 </div>
                 <span class="bottom-ribbon" aria-hidden="true"></span>
@@ -1931,5 +2390,5 @@ var $ = class extends q {
 		];
 	}
 };
-Z([J({ attribute: !1 })], $.prototype, "hass", void 0), Z([xe()], $.prototype, "config", void 0), $ = Z([ve("guardian-alerts-card")], $);
+Z([q({ attribute: !1 })], $.prototype, "hass", void 0), Z([J()], $.prototype, "config", void 0), $ = Z([K("guardian-alerts-card")], $);
 export { $ as GuardianAlertsCard };

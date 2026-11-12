@@ -100,16 +100,18 @@ alerts:
 
 | Key | Type | Required | Default | Description |
 | :--- | :--- | :---: | :--- | :--- |
-| `entity` | `string` | **Yes** | — | Any Home Assistant entity ID to monitor (e.g., `sensor.temperature`, `person.john`, `binary_sensor.front_door`). |
+| `priority` | `'P1' \| 'P2' \| 'P3' \| 'P4'` | No | `'P2'` | Priority level (`P1` highest to `P4` lowest). Active alerts and rules are automatically ordered by priority. |
+| `entity` | `string` | **Yes** | — | Primary Home Assistant entity ID to monitor (e.g., `sensor.temperature`, `person.john`, `binary_sensor.front_door`). |
 | `state` | `string \| number \| Array<string \| number>` | **Yes** | — | Single state/value or list of multiple trigger states (e.g., `"on"`, `["open", "opening"]`, `["armed_away", "armed_home"]`). |
 | `operator` | `'equals' \| 'not_equals' \| 'contains'` | No | `'equals'` | How to compare the entity's state against `state`: **Equal (`=`)**, **Not Equal (`≠`)**, or **Contains**. |
 | `for` | `{ hours?, minutes?, seconds? } \| string \| number` | No | `0` (immediate) | How long the entity must stay in the matching state before triggering (e.g., `{ minutes: 5 }`, `"00:05:00"`, or `30`). |
+| `conditions` | `AlertCondition[]` | No | — | Additional **AND** conditions (`entity`, `operator`, `state`, `for`) that must all be met simultaneously. |
 | `message` | `string` | **Yes** | — | Alert text displayed on the banner (supports `{{ state }}` and `{{ entity }}`). |
 | `template` | `'SECURE' \| 'INFO' \| 'WARNING' \| 'CRITICAL'` | No | `'INFO'` | Controls the color palette, default icon, and slow-flashing behavior. |
 | `icon` | `string` | No | Template default | Custom icon (e.g., `mdi:garage-open`). Defaults to `mdi:shield-check` (`SECURE`), `mdi:information-outline` (`INFO`), `mdi:alert` (`WARNING`), or `mdi:shield-alert` (`CRITICAL`). |
 | `icon_color` | `string` | No | Theme blend | Optional CSS color override for this alert's icon (e.g., `"#22d3ee"`). |
 | `on_active` | `ActionOrServiceInput` | No | — | One or more service calls executed when the rule transitions from inactive to active. |
-| `tap_action` | `ActionOrServiceInput` | No | `more-info` | Action or list of service calls triggered on tap/click. |
+| `tap_action` | `ActionOrServiceInput` | No | `more-info` | Supports `{ action: 'dismiss' }` (removes from active alert list), `{ action: 'snooze_30m' }` (auto-delays for 30 mins), `more-info`, `toggle`, or custom service calls. |
 | `hold_action` | `ActionOrServiceInput` | No | `more-info` | Action or list of service calls triggered after a `500ms` press-and-hold. |
 
 ### Template Variables in `service_data` / `data`

@@ -2,6 +2,8 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { HomeAssistant } from 'custom-card-helpers';
 import {
+  AlertCondition,
+  AlertPriority,
   AlertRule,
   AlertSeverity,
   DefaultAlertConfig,
@@ -19,6 +21,20 @@ interface HaFormSchemaItem {
   selector: Record<string, any>;
 }
 
+const PRIORITY_RANK: Record<string, number> = {
+  P1: 1,
+  P2: 2,
+  P3: 3,
+  P4: 4,
+};
+
+const PRIORITY_OPTIONS = [
+  { value: 'P1', label: 'P1 — Highest Priority (Top of Alert List)' },
+  { value: 'P2', label: 'P2 — High Priority' },
+  { value: 'P3', label: 'P3 — Medium Priority' },
+  { value: 'P4', label: 'P4 — Low Priority' },
+];
+
 const TEMPLATE_OPTIONS = [
   { value: 'SECURE', label: 'SECURE (Green — Static Shield)' },
   { value: 'INFO', label: 'INFO (Blue — Static)' },
@@ -30,6 +46,15 @@ const OPERATOR_OPTIONS = [
   { value: 'equals', label: 'Equal (=) — Matches any selected state' },
   { value: 'not_equals', label: 'Not Equal (≠) — Does not match selected state(s)' },
   { value: 'contains', label: 'Contains — State contains any selected value' },
+];
+
+const TAP_BEHAVIOR_OPTIONS = [
+  { value: 'dismiss', label: 'Dismiss Alert (Remove from active alerts list)' },
+  { value: 'snooze_30m', label: 'Auto Delay / Snooze for 30 Minutes' },
+  { value: 'more-info', label: 'Open Entity More-Info Dialog' },
+  { value: 'toggle', label: 'Toggle Entity' },
+  { value: 'none', label: 'No Action' },
+  { value: 'custom', label: 'Custom Home Assistant Action / Service Call' },
 ];
 
 const DOMAIN_STATE_SUGGESTIONS: Record<string, string[]> = {
@@ -82,9 +107,12 @@ const DOMAIN_STATE_SUGGESTIONS: Record<string, string[]> = {
 export class GuardianAlertsCardEditor extends LitElement {
   @property({ attribute: false }) public hass?: HomeAssistant;
   @state() private config?: GuardianAlertsCardConfig;
+  // Accordion state: only ONE rule can be open at a time (-1 = Default Rule, 0..N-1 = Alert Rule, null = all collapsed)
+  @state() private expandedRuleIndex: number | null = 0;
 
   private defaultSchemaCache = new Map<boolean, HaFormSchemaItem[]>();
   private ruleSchemaCache = new Map<string, HaFormSchemaItem[]>();
+  private conditionSchemaCache = new Map<string, HaFormSchemaItem[]>();
   private serviceSchemaCache = new Map<string, HaFormSchemaItem[]>();
   private cachedServicesRef?: HomeAssistant['services'];
   private cachedServiceOptions: Array<{ value: string; label: string }> = [];
@@ -112,6 +140,7 @@ export class GuardianAlertsCardEditor extends LitElement {
   }
 
   public setConfig(config: GuardianAlertsCardConfig): void {
+    const rawAlerts = Array.isArray(config?.alerts) ? config.alerts.map((r) => ({ ...r })) : [];
     this.config = {
       ...config,
       show_default_alert: config?.show_default_alert ?? true,
@@ -121,7 +150,42 @@ export class GuardianAlertsCardEditor extends LitElement {
         icon: 'mdi:shield-check',
         ...(config?.default_alert || {}),
       },
-      alerts: Array.isArray(config?.alerts) ? config.alerts.map((r) => ({ ...r })) : [],
+      alerts: rawAlerts,
+    };
+
+    if (
+      this.expandedRuleIndex !== null &&
+      this.expandedRuleIndex >= 0 &&
+      this.expandedRuleIndex >= rawAlerts.length
+    ) {
+      this.expandedRuleIndex = rawAlerts.length > 0 ? 0 : null;
+    }
+  }
+
+  private toggleAccordion(index: number): void {
+    this.expandedRuleIndex = this.expandedRuleIndex === index ? null : index;
+  }
+
+  private sortAlertsByPriority(
+    alerts: AlertRule[],
+    activeIndex?: number
+  ): { sorted: AlertRule[]; newActiveIndex: number | null } {
+    const tagged = alerts.map((rule, idx) => ({ rule, idx }));
+    tagged.sort((a, b) => {
+      const rankA = PRIORITY_RANK[(a.rule.priority || 'P2').toUpperCase()] ?? 2;
+      const rankB = PRIORITY_RANK[(b.rule.priority || 'P2').toUpperCase()] ?? 2;
+      if (rankA !== rankB) return rankA - rankB;
+      return a.idx - b.idx;
+    });
+
+    const newActiveIndex =
+      activeIndex !== undefined
+        ? tagged.findIndex((item) => item.idx === activeIndex)
+        : this.expandedRuleIndex;
+
+    return {
+      sorted: tagged.map((item) => item.rule),
+      newActiveIndex: newActiveIndex !== -1 ? newActiveIndex : this.expandedRuleIndex,
     };
   }
 
@@ -144,15 +208,15 @@ export class GuardianAlertsCardEditor extends LitElement {
     return schema.helper || '';
   };
 
-  private normalizeRuleStates(rule: AlertRule): string[] {
+  private normalizeConditionStates(cond: AlertCondition): string[] {
     const raw: Array<string | number | boolean> = [];
-    if (Array.isArray(rule.states)) {
-      raw.push(...rule.states);
+    if (Array.isArray(cond.states)) {
+      raw.push(...cond.states);
     }
-    if (Array.isArray(rule.state)) {
-      raw.push(...rule.state);
-    } else if (rule.state !== undefined && rule.state !== null && String(rule.state).trim() !== '') {
-      raw.push(rule.state);
+    if (Array.isArray(cond.state)) {
+      raw.push(...cond.state);
+    } else if (cond.state !== undefined && cond.state !== null && String(cond.state).trim() !== '') {
+      raw.push(cond.state);
     }
     return Array.from(
       new Set(
@@ -207,6 +271,18 @@ export class GuardianAlertsCardEditor extends LitElement {
     );
   }
 
+  private getTapBehaviorFromRule(rule: AlertRule): string {
+    if (!rule.tap_action) return 'more-info';
+    if (Array.isArray(rule.tap_action)) return 'custom';
+    const act = (rule.tap_action as ActionConfig).action;
+    if (act === 'dismiss') return 'dismiss';
+    if (act === 'snooze' || act === 'snooze_30m' || act === 'delay_30m') return 'snooze_30m';
+    if (act === 'more-info') return 'more-info';
+    if (act === 'toggle') return 'toggle';
+    if (act === 'none') return 'none';
+    return 'custom';
+  }
+
   private getStateOptionsForEntity(
     entityId: string | undefined,
     selectedStates: string[]
@@ -221,12 +297,10 @@ export class GuardianAlertsCardEditor extends LitElement {
       options.push({ value: clean, label: label || clean });
     };
 
-    // 1. Include any already-selected custom states first so their chips always render labels
     for (const s of selectedStates) {
       addOption(s);
     }
 
-    // 2. Inspect entity's live state and attributes in hass
     const cleanEntity = (entityId || '').trim();
     const stateObj = cleanEntity ? this.hass?.states?.[cleanEntity] : undefined;
     if (stateObj) {
@@ -255,7 +329,6 @@ export class GuardianAlertsCardEditor extends LitElement {
       }
     }
 
-    // 3. Domain-specific state suggestions
     const domain = cleanEntity.includes('.') ? cleanEntity.split('.')[0] : '';
     if (domain && DOMAIN_STATE_SUGGESTIONS[domain]) {
       for (const s of DOMAIN_STATE_SUGGESTIONS[domain]) {
@@ -263,7 +336,6 @@ export class GuardianAlertsCardEditor extends LitElement {
       }
     }
 
-    // For person / device_tracker, also add configured zone friendly names
     if ((domain === 'person' || domain === 'device_tracker') && this.hass?.states) {
       for (const [id, st] of Object.entries(this.hass.states)) {
         if (id.startsWith('zone.') && st?.attributes?.friendly_name) {
@@ -272,7 +344,6 @@ export class GuardianAlertsCardEditor extends LitElement {
       }
     }
 
-    // 4. General common states fallback
     for (const common of ['on', 'off', 'triggered', 'disarmed', 'open', 'closed', 'home', 'not_home', 'unavailable']) {
       addOption(common);
     }
@@ -334,12 +405,13 @@ export class GuardianAlertsCardEditor extends LitElement {
     entityId: string | undefined,
     defaultIcon: string,
     selectedStates: string[],
+    tapBehavior: string,
     liveStateDisplay?: string
   ): HaFormSchemaItem[] {
     const cleanEntity = (entityId || '').trim();
     const stateOptions = this.getStateOptionsForEntity(cleanEntity, selectedStates);
     const optionsKey = stateOptions.map((o) => o.value).join('|');
-    const cacheKey = `${cleanEntity}::${defaultIcon}::${liveStateDisplay || ''}::${optionsKey}`;
+    const cacheKey = `${cleanEntity}::${defaultIcon}::${tapBehavior}::${liveStateDisplay || ''}::${optionsKey}`;
     const cached = this.ruleSchemaCache.get(cacheKey);
     if (cached) return cached;
 
@@ -349,8 +421,18 @@ export class GuardianAlertsCardEditor extends LitElement {
 
     const schema: HaFormSchemaItem[] = [
       {
+        name: 'priority',
+        label: 'Priority Level (Reorders alerts: P1 first -> P4 last)',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: PRIORITY_OPTIONS,
+          },
+        },
+      },
+      {
         name: 'entity',
-        label: 'Entity (Search any sensor or entity)',
+        label: 'Primary Entity (Search any sensor or entity)',
         required: true,
         selector: { entity: {} },
       },
@@ -412,17 +494,90 @@ export class GuardianAlertsCardEditor extends LitElement {
         selector: { text: {} },
       },
       {
-        name: 'tap_action',
-        label: 'Tap Action',
+        name: 'tap_behavior',
+        label: 'On Tap Action (Dismiss, Delay 30m, More Info, etc.)',
         selector: {
-          ui_action: {
-            default_action: 'more-info',
+          select: {
+            mode: 'dropdown',
+            options: TAP_BEHAVIOR_OPTIONS,
           },
         },
       },
     ];
 
+    if (tapBehavior === 'custom') {
+      schema.push({
+        name: 'tap_action',
+        label: 'Custom Tap Action Configuration',
+        selector: {
+          ui_action: {
+            default_action: 'call-service',
+          },
+        },
+      });
+    }
+
     this.ruleSchemaCache.set(cacheKey, schema);
+    return schema;
+  }
+
+  private getConditionSchema(
+    entityId: string | undefined,
+    selectedStates: string[],
+    liveStateDisplay?: string
+  ): HaFormSchemaItem[] {
+    const cleanEntity = (entityId || '').trim();
+    const stateOptions = this.getStateOptionsForEntity(cleanEntity, selectedStates);
+    const optionsKey = stateOptions.map((o) => o.value).join('|');
+    const cacheKey = `${cleanEntity}::${liveStateDisplay || ''}::${optionsKey}`;
+    const cached = this.conditionSchemaCache.get(cacheKey);
+    if (cached) return cached;
+
+    const stateLabel = liveStateDisplay
+      ? `Trigger State(s) / Value(s) (Current: ${liveStateDisplay})`
+      : 'Trigger State(s) / Value(s)';
+
+    const schema: HaFormSchemaItem[] = [
+      {
+        name: 'entity',
+        label: 'AND Entity (Search any sensor or entity)',
+        required: true,
+        selector: { entity: {} },
+      },
+      {
+        name: 'operator',
+        label: 'State Match Condition',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: OPERATOR_OPTIONS,
+          },
+        },
+      },
+      {
+        name: 'states',
+        label: stateLabel,
+        helper: 'Select one or more states, or type any custom value/text and press Enter',
+        required: true,
+        selector: {
+          select: {
+            multiple: true,
+            custom_value: true,
+            mode: 'dropdown',
+            options: stateOptions,
+          },
+        },
+      },
+      {
+        name: 'for',
+        label: 'Duration in State Before Matching (hh:mm:ss)',
+        selector: {
+          duration: {},
+        },
+      },
+    ];
+
+    this.conditionSchemaCache.set(cacheKey, schema);
     return schema;
   }
 
@@ -539,7 +694,10 @@ export class GuardianAlertsCardEditor extends LitElement {
     const value = ev.detail?.value;
     if (!value) return;
 
-    const nextAlerts = this.config.alerts.map((rule, i) => {
+    const oldPriority = (this.config.alerts[index]?.priority || 'P2').toUpperCase();
+    const newPriority = ((value.priority || oldPriority) as string).toUpperCase() as AlertPriority;
+
+    const updatedAlerts = this.config.alerts.map((rule, i) => {
       if (i !== index) return rule;
 
       const selectedStates: string[] = Array.isArray(value.states)
@@ -550,6 +708,7 @@ export class GuardianAlertsCardEditor extends LitElement {
 
       const updated: AlertRule = {
         ...rule,
+        priority: newPriority,
         entity: value.entity ?? rule.entity ?? '',
         operator: (value.operator || rule.operator || 'equals') as StateOperator,
         state: selectedStates.length === 1 ? selectedStates[0] : selectedStates,
@@ -576,13 +735,76 @@ export class GuardianAlertsCardEditor extends LitElement {
         delete updated.icon;
       }
 
-      if (value.tap_action && !Array.isArray(rule.tap_action)) {
-        updated.tap_action = value.tap_action as ActionConfig;
+      const tapBehavior = value.tap_behavior || this.getTapBehaviorFromRule(rule);
+      if (tapBehavior === 'dismiss') {
+        updated.tap_action = { action: 'dismiss' };
+      } else if (tapBehavior === 'snooze_30m') {
+        updated.tap_action = { action: 'snooze_30m', snooze_minutes: 30 };
+      } else if (tapBehavior === 'more-info') {
+        updated.tap_action = { action: 'more-info' };
+      } else if (tapBehavior === 'toggle') {
+        updated.tap_action = { action: 'toggle' };
+      } else if (tapBehavior === 'none') {
+        updated.tap_action = { action: 'none' };
+      } else if (tapBehavior === 'custom') {
+        if (value.tap_action && !Array.isArray(rule.tap_action)) {
+          updated.tap_action = value.tap_action as ActionConfig;
+        } else if (!rule.tap_action || (rule.tap_action as ActionConfig).action === 'dismiss' || (rule.tap_action as ActionConfig).action === 'snooze_30m') {
+          updated.tap_action = { action: 'call-service' };
+        }
       }
 
       return updated;
     });
 
+    // If priority changed, automatically reorder the rules list based on P1..P4 and keep this rule expanded
+    let finalAlerts = updatedAlerts;
+    if (newPriority !== oldPriority) {
+      const { sorted, newActiveIndex } = this.sortAlertsByPriority(updatedAlerts, index);
+      finalAlerts = sorted;
+      this.expandedRuleIndex = newActiveIndex;
+    }
+
+    this.emitConfigChanged({
+      ...this.config,
+      type: this.config.type || 'custom:guardian-alerts-card',
+      alerts: finalAlerts,
+    });
+  }
+
+  private addRule(): void {
+    if (!this.config) return;
+    const existing = this.config.alerts || [];
+    const newRule: AlertRule = {
+      priority: 'P2',
+      entity: '',
+      state: [],
+      operator: 'equals',
+      template: 'WARNING',
+      message: 'New Guardian Alert',
+      tap_action: { action: 'dismiss' },
+    };
+
+    const combined = [...existing, newRule];
+    const { sorted, newActiveIndex } = this.sortAlertsByPriority(combined, combined.length - 1);
+    this.expandedRuleIndex = newActiveIndex;
+
+    this.emitConfigChanged({
+      ...this.config,
+      type: this.config.type || 'custom:guardian-alerts-card',
+      alerts: sorted,
+    });
+  }
+
+  private removeRule(index: number, ev: Event): void {
+    ev.stopPropagation();
+    if (!this.config) return;
+    const nextAlerts = this.config.alerts.filter((_, i) => i !== index);
+    if (this.expandedRuleIndex === index) {
+      this.expandedRuleIndex = nextAlerts.length > 0 ? 0 : null;
+    } else if (this.expandedRuleIndex !== null && this.expandedRuleIndex > index) {
+      this.expandedRuleIndex -= 1;
+    }
     this.emitConfigChanged({
       ...this.config,
       type: this.config.type || 'custom:guardian-alerts-card',
@@ -590,32 +812,88 @@ export class GuardianAlertsCardEditor extends LitElement {
     });
   }
 
-  private addRule(): void {
+  private addAndCondition(ruleIndex: number): void {
     if (!this.config) return;
-    const existing = this.config.alerts || [];
-
+    const rule = this.config.alerts[ruleIndex];
+    const currentConditions = Array.isArray(rule.conditions) ? [...rule.conditions] : [];
+    const nextAlerts = this.config.alerts.map((r, i) =>
+      i === ruleIndex
+        ? {
+            ...r,
+            conditions: [
+              ...currentConditions,
+              {
+                entity: '',
+                operator: 'equals' as StateOperator,
+                state: [],
+              },
+            ],
+          }
+        : r
+    );
     this.emitConfigChanged({
       ...this.config,
-      type: this.config.type || 'custom:guardian-alerts-card',
-      alerts: [
-        ...existing,
-        {
-          entity: '',
-          state: [],
-          operator: 'equals',
-          template: 'WARNING',
-          message: 'New Guardian Alert',
-        },
-      ],
+      alerts: nextAlerts,
     });
   }
 
-  private removeRule(index: number): void {
+  private onAndConditionFormChanged(
+    ruleIndex: number,
+    condIndex: number,
+    ev: CustomEvent
+  ): void {
+    ev.stopPropagation();
     if (!this.config) return;
-    const nextAlerts = this.config.alerts.filter((_, i) => i !== index);
+    const value = ev.detail?.value;
+    if (!value) return;
+
+    const rule = this.config.alerts[ruleIndex];
+    const currentConditions = Array.isArray(rule.conditions) ? rule.conditions : [];
+    const nextConditions = currentConditions.map((cond, idx) => {
+      if (idx !== condIndex) return cond;
+      const selectedStates: string[] = Array.isArray(value.states)
+        ? value.states.map((s: any) => String(s).trim()).filter(Boolean)
+        : value.states !== undefined && String(value.states).trim() !== ''
+          ? [String(value.states).trim()]
+          : [];
+
+      const updated: AlertCondition = {
+        entity: value.entity ?? cond.entity ?? '',
+        operator: (value.operator || cond.operator || 'equals') as StateOperator,
+        state: selectedStates.length === 1 ? selectedStates[0] : selectedStates,
+      };
+
+      if (value.for && !this.isZeroDuration(value.for)) {
+        updated.for = {
+          hours: Number(value.for.hours || 0),
+          minutes: Number(value.for.minutes || 0),
+          seconds: Number(value.for.seconds || 0),
+        };
+      }
+
+      return updated;
+    });
+
+    const nextAlerts = this.config.alerts.map((r, i) =>
+      i === ruleIndex ? { ...r, conditions: nextConditions } : r
+    );
     this.emitConfigChanged({
       ...this.config,
-      type: this.config.type || 'custom:guardian-alerts-card',
+      alerts: nextAlerts,
+    });
+  }
+
+  private removeAndCondition(ruleIndex: number, condIndex: number): void {
+    if (!this.config) return;
+    const rule = this.config.alerts[ruleIndex];
+    const nextConditions = (rule.conditions || []).filter((_, idx) => idx !== condIndex);
+    const nextAlerts = this.config.alerts.map((r, i) =>
+      i === ruleIndex
+        ? { ...r, conditions: nextConditions.length > 0 ? nextConditions : undefined }
+        : r
+    );
+    this.emitConfigChanged({
+      ...this.config,
       alerts: nextAlerts,
     });
   }
@@ -735,6 +1013,7 @@ export class GuardianAlertsCardEditor extends LitElement {
     if (!this.config) return nothing;
 
     const showDefault = this.config.show_default_alert !== false;
+    const isDefaultOpen = this.expandedRuleIndex === -1;
     const defaultAlertData = {
       show_default_alert: showDefault,
       message: this.config.default_alert?.message ?? 'All Secured',
@@ -745,26 +1024,55 @@ export class GuardianAlertsCardEditor extends LitElement {
 
     return html`
       <div class="editor-container">
-        <!-- Default "All Secured" Banner Section -->
+        <!-- Default "All Secured" Rule Card (Collapsible) -->
         <div class="rule-card secure-card">
-          <div class="rule-header">
-            <span class="rule-title">🛡️ Default Rule (When All Secured)</span>
+          <div
+            class="rule-header clickable"
+            @click=${() => this.toggleAccordion(-1)}
+          >
+            <div class="rule-header-left">
+              <span class="priority-pill priority-secure">DEFAULT</span>
+              <span class="rule-title">
+                🛡️ ${defaultAlertData.message || 'All Secured'} (${showDefault ? 'Enabled' : 'Disabled'})
+              </span>
+            </div>
+            <div class="rule-header-actions">
+              <button
+                type="button"
+                class="btn-collapse"
+                title=${isDefaultOpen ? 'Collapse' : 'Expand'}
+              >
+                <span class="chevron ${isDefaultOpen ? 'open' : ''}">▼</span>
+              </button>
+            </div>
           </div>
-          <ha-form
-            .hass=${this.hass}
-            .data=${defaultAlertData}
-            .schema=${this.getDefaultAlertSchema(showDefault)}
-            .computeLabel=${this.computeLabel}
-            .computeHelper=${this.computeHelper}
-            @value-changed=${(ev: CustomEvent) => this.onDefaultAlertFormChanged(ev)}
-          ></ha-form>
+
+          ${isDefaultOpen
+            ? html`
+                <div class="rule-body">
+                  <ha-form
+                    .hass=${this.hass}
+                    .data=${defaultAlertData}
+                    .schema=${this.getDefaultAlertSchema(showDefault)}
+                    .computeLabel=${this.computeLabel}
+                    .computeHelper=${this.computeHelper}
+                    @value-changed=${(ev: CustomEvent) => this.onDefaultAlertFormChanged(ev)}
+                  ></ha-form>
+                </div>
+              `
+            : nothing}
         </div>
 
-        <!-- Alert Rules Section -->
+        <!-- Collapsible Alert Rules List (Only 1 open at a time) -->
         ${this.config.alerts.map((rule, index) => {
+          const isOpen = this.expandedRuleIndex === index;
+          const priority = (rule.priority || 'P2').toUpperCase();
           const tpl = getTemplate(rule.template || rule.severity);
           const services = this.normalizeOnActiveList(rule);
-          const selectedStates = this.normalizeRuleStates(rule);
+          const andConditions = Array.isArray(rule.conditions) ? rule.conditions : [];
+          const selectedStates = this.normalizeConditionStates(rule);
+          const tapBehavior = this.getTapBehaviorFromRule(rule);
+
           const entityStateObj = rule.entity ? this.hass?.states?.[rule.entity] : undefined;
           const unit = entityStateObj?.attributes?.unit_of_measurement;
           const liveStateDisplay =
@@ -773,6 +1081,7 @@ export class GuardianAlertsCardEditor extends LitElement {
               : undefined;
 
           const ruleFormData = {
+            priority,
             entity: rule.entity || '',
             operator: rule.operator || 'equals',
             states: selectedStates,
@@ -780,83 +1089,179 @@ export class GuardianAlertsCardEditor extends LitElement {
             template: (rule.template || rule.severity || 'INFO').toUpperCase(),
             icon: rule.icon || '',
             message: rule.message || '',
+            tap_behavior: tapBehavior,
             tap_action: !Array.isArray(rule.tap_action)
-              ? rule.tap_action || { action: 'more-info' }
-              : { action: 'more-info' },
+              ? rule.tap_action || { action: 'call-service' }
+              : { action: 'call-service' },
           };
 
           return html`
-            <div class="rule-card">
-              <div class="rule-header">
-                <span class="rule-title">Alert Rule #${index + 1} (${tpl.name})</span>
-                <button
-                  type="button"
-                  class="btn-danger"
-                  @click=${() => this.removeRule(index)}
-                >
-                  Remove Rule
-                </button>
-              </div>
-
-              <ha-form
-                .hass=${this.hass}
-                .data=${ruleFormData}
-                .schema=${this.getRuleSchema(
-                  rule.entity,
-                  tpl.defaultIcon,
-                  selectedStates,
-                  liveStateDisplay
-                )}
-                .computeLabel=${this.computeLabel}
-                .computeHelper=${this.computeHelper}
-                @value-changed=${(ev: CustomEvent) => this.onRuleFormChanged(index, ev)}
-              ></ha-form>
-
-              <div class="services-section">
-                <div class="services-header">
-                  <span>On-Active Service Calls (${services.length})</span>
+            <div class="rule-card ${isOpen ? 'expanded' : 'collapsed'}">
+              <div
+                class="rule-header clickable"
+                @click=${() => this.toggleAccordion(index)}
+              >
+                <div class="rule-header-left">
+                  <span class="priority-pill priority-${priority.toLowerCase()}">${priority}</span>
+                  <div class="rule-summary">
+                    <span class="rule-title">
+                      ${rule.message || `Alert Rule #${index + 1}`} (${tpl.name})
+                    </span>
+                    <span class="rule-subtitle">
+                      ${rule.entity || 'No entity selected'}
+                      ${selectedStates.length > 0 ? ` · [${selectedStates.join(', ')}]` : ''}
+                      ${andConditions.length > 0 ? ` · +${andConditions.length} AND` : ''}
+                    </span>
+                  </div>
+                </div>
+                <div class="rule-header-actions">
                   <button
                     type="button"
-                    class="btn-secondary"
-                    @click=${() => this.addOnActiveService(index)}
+                    class="btn-danger-sm"
+                    title="Remove Rule"
+                    @click=${(ev: Event) => this.removeRule(index, ev)}
                   >
-                    + Add Service Call
+                    Remove
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-collapse"
+                    title=${isOpen ? 'Collapse rule' : 'Expand rule'}
+                  >
+                    <span class="chevron ${isOpen ? 'open' : ''}">▼</span>
                   </button>
                 </div>
+              </div>
 
-                ${services.map((svc, sIdx) => {
-                  const svcFormData = {
-                    service: svc.service || '',
-                    target: svc.target || {},
-                    message: svc.service_data?.message ?? '',
-                  };
-
-                  return html`
-                    <div class="service-card">
-                      <div class="service-card-header">
-                        <span>Service Call #${sIdx + 1}</span>
-                        <button
-                          type="button"
-                          class="btn-danger-sm"
-                          title="Remove Service Call"
-                          @click=${() => this.removeOnActiveService(index, sIdx)}
-                        >
-                          Remove
-                        </button>
-                      </div>
+              ${isOpen
+                ? html`
+                    <div class="rule-body">
                       <ha-form
                         .hass=${this.hass}
-                        .data=${svcFormData}
-                        .schema=${this.getServiceCallSchema(svc.service)}
+                        .data=${ruleFormData}
+                        .schema=${this.getRuleSchema(
+                          rule.entity,
+                          tpl.defaultIcon,
+                          selectedStates,
+                          tapBehavior,
+                          liveStateDisplay
+                        )}
                         .computeLabel=${this.computeLabel}
                         .computeHelper=${this.computeHelper}
-                        @value-changed=${(ev: CustomEvent) =>
-                          this.onServiceCallFormChanged(index, sIdx, ev)}
+                        @value-changed=${(ev: CustomEvent) => this.onRuleFormChanged(index, ev)}
                       ></ha-form>
+
+                      <!-- Additional AND Conditions Section -->
+                      <div class="services-section">
+                        <div class="services-header">
+                          <span>Additional AND Conditions (${andConditions.length})</span>
+                          <button
+                            type="button"
+                            class="btn-secondary"
+                            @click=${() => this.addAndCondition(index)}
+                          >
+                            + Add AND Condition
+                          </button>
+                        </div>
+
+                        ${andConditions.map((cond, cIdx) => {
+                          const condStates = this.normalizeConditionStates(cond);
+                          const condStateObj = cond.entity
+                            ? this.hass?.states?.[cond.entity]
+                            : undefined;
+                          const condUnit = condStateObj?.attributes?.unit_of_measurement;
+                          const condLiveDisplay =
+                            condStateObj?.state !== undefined
+                              ? `${condStateObj.state}${condUnit ? ` ${condUnit}` : ''}`
+                              : undefined;
+
+                          const condFormData = {
+                            entity: cond.entity || '',
+                            operator: cond.operator || 'equals',
+                            states: condStates,
+                            for: this.normalizeDurationObject(cond.for ?? cond.duration),
+                          };
+
+                          return html`
+                            <div class="service-card">
+                              <div class="service-card-header">
+                                <span>AND Condition #${cIdx + 1}</span>
+                                <button
+                                  type="button"
+                                  class="btn-danger-sm"
+                                  title="Remove AND Condition"
+                                  @click=${() => this.removeAndCondition(index, cIdx)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              <ha-form
+                                .hass=${this.hass}
+                                .data=${condFormData}
+                                .schema=${this.getConditionSchema(
+                                  cond.entity,
+                                  condStates,
+                                  condLiveDisplay
+                                )}
+                                .computeLabel=${this.computeLabel}
+                                .computeHelper=${this.computeHelper}
+                                @value-changed=${(ev: CustomEvent) =>
+                                  this.onAndConditionFormChanged(index, cIdx, ev)}
+                              ></ha-form>
+                            </div>
+                          `;
+                        })}
+                      </div>
+
+                      <!-- On-Active Service Calls Section -->
+                      <div class="services-section">
+                        <div class="services-header">
+                          <span>On-Active Service Calls (${services.length})</span>
+                          <button
+                            type="button"
+                            class="btn-secondary"
+                            @click=${() => this.addOnActiveService(index)}
+                          >
+                            + Add Service Call
+                          </button>
+                        </div>
+
+                        ${services.map((svc, sIdx) => {
+                          const svcFormData = {
+                            service: svc.service || '',
+                            target: svc.target || {},
+                            message: svc.service_data?.message ?? '',
+                          };
+
+                          return html`
+                            <div class="service-card">
+                              <div class="service-card-header">
+                                <span>Service Call #${sIdx + 1}</span>
+                                <button
+                                  type="button"
+                                  class="btn-danger-sm"
+                                  title="Remove Service Call"
+                                  @click=${() => this.removeOnActiveService(index, sIdx)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              <ha-form
+                                .hass=${this.hass}
+                                .data=${svcFormData}
+                                .schema=${this.getServiceCallSchema(svc.service)}
+                                .computeLabel=${this.computeLabel}
+                                .computeHelper=${this.computeHelper}
+                                @value-changed=${(ev: CustomEvent) =>
+                                  this.onServiceCallFormChanged(index, sIdx, ev)}
+                              ></ha-form>
+                            </div>
+                          `;
+                        })}
+                      </div>
                     </div>
-                  `;
-                })}
-              </div>
+                  `
+                : nothing}
             </div>
           `;
         })}
@@ -872,7 +1277,7 @@ export class GuardianAlertsCardEditor extends LitElement {
     .editor-container {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
       padding: 8px 0;
       color: var(--primary-text-color, #f3f4f6);
     }
@@ -881,22 +1286,142 @@ export class GuardianAlertsCardEditor extends LitElement {
       background: var(--secondary-background-color, rgba(255, 255, 255, 0.04));
       border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.12));
       border-radius: 12px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+      overflow: hidden;
+      transition: border-color 0.2s ease;
+    }
+
+    .rule-card.expanded {
+      border-color: var(--primary-color, #38bdf8);
     }
 
     .secure-card {
-      border-color: color-mix(in srgb, var(--success-color, #22c55e) 40%, var(--divider-color, rgba(255, 255, 255, 0.12)));
+      border-color: color-mix(
+        in srgb,
+        var(--success-color, #22c55e) 40%,
+        var(--divider-color, rgba(255, 255, 255, 0.12))
+      );
     }
 
     .rule-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      user-select: none;
+    }
+
+    .rule-header.clickable {
+      cursor: pointer;
+    }
+
+    .rule-header.clickable:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .rule-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .rule-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .rule-title {
       font-weight: 700;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .rule-subtitle {
+      font-size: 0.76rem;
+      color: var(--secondary-text-color, #9ca3af);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .rule-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .priority-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      flex-shrink: 0;
+    }
+
+    .priority-p1 {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.45);
+    }
+
+    .priority-p2 {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+    }
+
+    .priority-p3 {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.45);
+    }
+
+    .priority-p4 {
+      background: rgba(148, 163, 184, 0.2);
+      color: #cbd5e1;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+
+    .priority-secure {
+      background: rgba(34, 197, 94, 0.2);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.45);
+    }
+
+    .btn-collapse {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--primary-text-color, #f3f4f6);
+      padding: 5px 9px;
+      border-radius: 6px;
+    }
+
+    .chevron {
+      display: inline-block;
+      font-size: 0.75rem;
+      transition: transform 0.2s ease;
+    }
+
+    .chevron.open {
+      transform: rotate(180deg);
+    }
+
+    .rule-body {
+      padding: 4px 16px 16px 16px;
+      border-top: 1px solid var(--divider-color, rgba(255, 255, 255, 0.08));
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
     }
 
     .services-section {
@@ -955,12 +1480,6 @@ export class GuardianAlertsCardEditor extends LitElement {
       background: rgba(56, 189, 248, 0.15);
       color: var(--primary-color, #38bdf8);
       border: 1px solid rgba(56, 189, 248, 0.35);
-    }
-
-    .btn-danger {
-      background: rgba(239, 68, 68, 0.15);
-      color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.35);
     }
 
     .btn-danger-sm {

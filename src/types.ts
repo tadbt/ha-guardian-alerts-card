@@ -2,6 +2,8 @@ import { ActionOrServiceInput } from './templates/types';
 
 export type AlertSeverity = 'SECURE' | 'INFO' | 'WARNING' | 'CRITICAL';
 
+export type AlertPriority = 'P1' | 'P2' | 'P3' | 'P4';
+
 export type StateOperator = 'equals' | 'not_equals' | 'contains';
 
 export interface DurationConfig {
@@ -12,6 +14,15 @@ export interface DurationConfig {
     milliseconds?: number;
 }
 
+export interface AlertCondition {
+    entity: string;
+    state?: string | number | boolean | Array<string | number | boolean>;
+    states?: Array<string | number | boolean>;
+    operator?: StateOperator;
+    for?: DurationConfig | number | string;
+    duration?: DurationConfig | number | string;
+}
+
 export interface AlertRule {
     entity: string;
     state?: string | number | boolean | Array<string | number | boolean>; // Single or multiple trigger states
@@ -19,6 +30,8 @@ export interface AlertRule {
     operator?: StateOperator; // 'equals' (default) | 'not_equals' | 'contains'
     for?: DurationConfig | number | string; // How long entity must stay in state to trigger
     duration?: DurationConfig | number | string; // Alias for `for`
+    conditions?: AlertCondition[]; // Additional AND conditions that must all match
+    priority?: AlertPriority; // 'P1' | 'P2' | 'P3' | 'P4' (orders active alerts)
     template?: AlertSeverity;
     severity?: AlertSeverity;
     message: string;

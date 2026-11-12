@@ -16,7 +16,20 @@ export interface ServiceCallConfig {
 }
 
 export interface ActionConfig {
-    action?: 'more-info' | 'toggle' | 'navigate' | 'url' | 'call-service' | 'perform-action' | 'none' | string;
+    action?:
+        | 'more-info'
+        | 'toggle'
+        | 'navigate'
+        | 'url'
+        | 'call-service'
+        | 'perform-action'
+        | 'dismiss'
+        | 'snooze'
+        | 'snooze_30m'
+        | 'delay_30m'
+        | 'none'
+        | string;
+    snooze_minutes?: number;
     navigation_path?: string;
     url_path?: string;
     service?: string;
