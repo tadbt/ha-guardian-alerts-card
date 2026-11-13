@@ -2347,7 +2347,7 @@ var $ = class extends U {
 		}
 	}
 	renderKeypadDropdown() {
-		let e = this.config?.default_alert?.keypad, t = e?.entity?.trim(), n = t ? this.hass?.states?.[t]?.state : void 0, r = (e?.passcodes || []).some((e) => String(e).trim().length > 0), i = "•".repeat(this.keypadCode.length), a = n?.toLowerCase(), o = a !== void 0 && (a === "armed" || a.startsWith("armed") || a === "away" || a === "on" || a === "locked");
+		let e = this.config?.default_alert?.keypad, t = e?.entity?.trim(), n = t ? this.hass?.states?.[t]?.state : void 0, r = (e?.passcodes || []).some((e) => String(e).trim().length > 0), i = "•".repeat(this.keypadCode.length), a = n?.toLowerCase(), o = a !== void 0 && (a === "armed" || a.startsWith("armed") || a === "away" || a === "on" || a === "locked"), s = o && this.armDelayRemaining === 0 && r;
 		return P`
       <div
         class="keypad-dropdown"
@@ -2415,8 +2415,9 @@ var $ = class extends U {
                 </div>
               `}
 
-        <div class="keypad-grid">
-          ${[
+        ${s ? P`
+              <div class="keypad-grid">
+                ${[
 			"1",
 			"2",
 			"3",
@@ -2427,38 +2428,39 @@ var $ = class extends U {
 			"8",
 			"9"
 		].map((e) => P`
-              <button
-                type="button"
-                class="keypad-key"
-                @click=${() => this.appendKeypadDigit(e)}
-              >
-                ${e}
-              </button>
-            `)}
-          <button
-            type="button"
-            class="keypad-key keypad-key-secondary"
-            title="Clear"
-            @click=${() => this.clearKeypadCode()}
-          >
-            ✕
-          </button>
-          <button
-            type="button"
-            class="keypad-key"
-            @click=${() => this.appendKeypadDigit("0")}
-          >
-            0
-          </button>
-          <button
-            type="button"
-            class="keypad-key keypad-key-secondary"
-            title="Backspace"
-            @click=${() => this.backspaceKeypad()}
-          >
-            ⌫
-          </button>
-        </div>
+                    <button
+                      type="button"
+                      class="keypad-key"
+                      @click=${() => this.appendKeypadDigit(e)}
+                    >
+                      ${e}
+                    </button>
+                  `)}
+                <button
+                  type="button"
+                  class="keypad-key keypad-key-secondary"
+                  title="Clear"
+                  @click=${() => this.clearKeypadCode()}
+                >
+                  ✕
+                </button>
+                <button
+                  type="button"
+                  class="keypad-key"
+                  @click=${() => this.appendKeypadDigit("0")}
+                >
+                  0
+                </button>
+                <button
+                  type="button"
+                  class="keypad-key keypad-key-secondary"
+                  title="Backspace"
+                  @click=${() => this.backspaceKeypad()}
+                >
+                  ⌫
+                </button>
+              </div>
+            ` : I}
       </div>
     `;
 	}

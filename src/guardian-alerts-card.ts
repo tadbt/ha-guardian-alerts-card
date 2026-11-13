@@ -744,6 +744,7 @@ export class GuardianAlertsCard extends LitElement {
         stateLower === 'away' ||
         stateLower === 'on' ||
         stateLower === 'locked');
+    const showKeypadGrid = isArmedOrAway && this.armDelayRemaining === 0 && hasPasscodes;
 
     return html`
       <div
@@ -828,42 +829,46 @@ export class GuardianAlertsCard extends LitElement {
                 </div>
               `}
 
-        <div class="keypad-grid">
-          ${['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(
-            (digit) => html`
-              <button
-                type="button"
-                class="keypad-key"
-                @click=${() => this.appendKeypadDigit(digit)}
-              >
-                ${digit}
-              </button>
+        ${showKeypadGrid
+          ? html`
+              <div class="keypad-grid">
+                ${['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(
+                  (digit) => html`
+                    <button
+                      type="button"
+                      class="keypad-key"
+                      @click=${() => this.appendKeypadDigit(digit)}
+                    >
+                      ${digit}
+                    </button>
+                  `
+                )}
+                <button
+                  type="button"
+                  class="keypad-key keypad-key-secondary"
+                  title="Clear"
+                  @click=${() => this.clearKeypadCode()}
+                >
+                  ✕
+                </button>
+                <button
+                  type="button"
+                  class="keypad-key"
+                  @click=${() => this.appendKeypadDigit('0')}
+                >
+                  0
+                </button>
+                <button
+                  type="button"
+                  class="keypad-key keypad-key-secondary"
+                  title="Backspace"
+                  @click=${() => this.backspaceKeypad()}
+                >
+                  ⌫
+                </button>
+              </div>
             `
-          )}
-          <button
-            type="button"
-            class="keypad-key keypad-key-secondary"
-            title="Clear"
-            @click=${() => this.clearKeypadCode()}
-          >
-            ✕
-          </button>
-          <button
-            type="button"
-            class="keypad-key"
-            @click=${() => this.appendKeypadDigit('0')}
-          >
-            0
-          </button>
-          <button
-            type="button"
-            class="keypad-key keypad-key-secondary"
-            title="Backspace"
-            @click=${() => this.backspaceKeypad()}
-          >
-            ⌫
-          </button>
-        </div>
+          : nothing}
       </div>
     `;
   }
