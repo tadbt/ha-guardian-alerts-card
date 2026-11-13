@@ -2070,7 +2070,7 @@ var $ = class extends U {
 		this.clearAllTimers(), this.config = {
 			...e,
 			alerts: Array.isArray(e.alerts) ? e.alerts : []
-		}, this.holdMenuKey = null, this.keypadOpen = !1, this.keypadCode = "", this.keypadFeedback = null, this.armDelayRemaining = 0, this.armDelayMode = null, this.activeEntryKeys.clear(), this.matchedSinceMap.clear(), this.dismissedEntryKeys.clear(), this.snoozedUntilMap.clear(), this.hasInitializedStates = !1;
+		}, this.holdMenuKey = null, this.closeKeypad(), this.armDelayRemaining = 0, this.armDelayMode = null, this.activeEntryKeys.clear(), this.matchedSinceMap.clear(), this.dismissedEntryKeys.clear(), this.snoozedUntilMap.clear(), this.hasInitializedStates = !1;
 	}
 	getMonitoredEntities(e) {
 		if (Array.isArray(e.entities)) {
@@ -2261,8 +2261,11 @@ var $ = class extends U {
 	handleCancelHoldMenu(e) {
 		e.stopPropagation(), this.holdMenuKey = null;
 	}
+	closeKeypad() {
+		window.clearTimeout(this.keypadFeedbackTimer), this.keypadOpen = !1, this.keypadCode = "", this.keypadFeedback = null;
+	}
 	toggleKeypad(e) {
-		e.stopPropagation(), this.keypadOpen = !this.keypadOpen, this.keypadOpen || (this.keypadCode = "", this.keypadFeedback = null);
+		e.stopPropagation(), this.keypadOpen ? this.closeKeypad() : this.keypadOpen = !0;
 	}
 	appendKeypadDigit(e) {
 		!/^\d$/.test(e) || this.keypadCode.length >= 4 || (this.keypadFeedback?.type === "error" && (this.keypadFeedback = null), this.keypadCode = `${this.keypadCode}${e}`);
@@ -2339,9 +2342,7 @@ var $ = class extends U {
 				entity_id: t,
 				value: i
 			});
-			r?.chime && r.chime !== "none" && X(r.chime), this.keypadCode = "";
-			let s = e === "arm" ? "Armed" : e === "away" ? "Away" : "Disarmed";
-			this.setKeypadFeedback("success", `${s} (${i})`);
+			r?.chime && r.chime !== "none" && X(r.chime), this.closeKeypad();
 		} catch {
 			this.setKeypadFeedback("error", "Failed to update entity");
 		}

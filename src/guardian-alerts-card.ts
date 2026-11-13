@@ -165,9 +165,7 @@ export class GuardianAlertsCard extends LitElement {
       alerts: Array.isArray(config.alerts) ? config.alerts : [],
     };
     this.holdMenuKey = null;
-    this.keypadOpen = false;
-    this.keypadCode = '';
-    this.keypadFeedback = null;
+    this.closeKeypad();
     this.armDelayRemaining = 0;
     this.armDelayMode = null;
     this.activeEntryKeys.clear();
@@ -566,12 +564,19 @@ export class GuardianAlertsCard extends LitElement {
     this.holdMenuKey = null;
   }
 
+  private closeKeypad(): void {
+    window.clearTimeout(this.keypadFeedbackTimer);
+    this.keypadOpen = false;
+    this.keypadCode = '';
+    this.keypadFeedback = null;
+  }
+
   private toggleKeypad(ev: Event): void {
     ev.stopPropagation();
-    this.keypadOpen = !this.keypadOpen;
-    if (!this.keypadOpen) {
-      this.keypadCode = '';
-      this.keypadFeedback = null;
+    if (this.keypadOpen) {
+      this.closeKeypad();
+    } else {
+      this.keypadOpen = true;
     }
   }
 
@@ -721,9 +726,7 @@ export class GuardianAlertsCard extends LitElement {
         playChime(keypadCfg.chime);
       }
 
-      this.keypadCode = '';
-      const label = mode === 'arm' ? 'Armed' : mode === 'away' ? 'Away' : 'Disarmed';
-      this.setKeypadFeedback('success', `${label} (${value})`);
+      this.closeKeypad();
     } catch {
       this.setKeypadFeedback('error', 'Failed to update entity');
     }
