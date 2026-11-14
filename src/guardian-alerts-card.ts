@@ -621,8 +621,76 @@ export class GuardianAlertsCard extends LitElement {
     }
   }
 
+  private getKeypadStateInfo(targetEntity?: string): {
+    rawState: string | undefined;
+    formattedState: string | undefined;
+    isAlarmPanel: boolean;
+    isArmed: boolean;
+    isArming: boolean;
+    isPendingOrTriggered: boolean;
+    canDisarm: boolean;
+    codeFormat: string | undefined;
+    codeArmRequired: boolean;
+    supportsArmHome: boolean;
+    supportsArmAway: boolean;
+  } {
+    const entityId = targetEntity?.trim();
+    const entityObj = entityId ? this.hass?.states?.[entityId] : undefined;
+    const rawState = entityObj?.state;
+    const stateLower = rawState?.toLowerCase();
+    const isAlarmPanel = entityId?.startsWith('alarm_control_panel.') ?? false;
+
+    const isArming = stateLower === 'arming';
+    const isPendingOrTriggered = stateLower === 'pending' || stateLower === 'triggered';
+    const isArmed =
+      stateLower !== undefined &&
+      (stateLower === 'armed' ||
+        stateLower.startsWith('armed') ||
+        stateLower === 'away' ||
+        stateLower === 'on' ||
+        stateLower === 'locked');
+    const canDisarm = isArmed || isArming || isPendingOrTriggered;
+
+    const stateLabels: Record<string, string> = {
+      disarmed: 'Disarmed',
+      armed_home: 'Armed Home',
+      armed_away: 'Armed Away',
+      armed_night: 'Armed Night',
+      armed_vacation: 'Armed Vacation',
+      armed_custom_bypass: 'Armed Custom',
+      arming: 'Arming',
+      pending: 'Pending',
+      triggered: 'Triggered',
+    };
+    const formattedState =
+      stateLower && isAlarmPanel && stateLabels[stateLower] ? stateLabels[stateLower] : rawState;
+
+    const attrs = entityObj?.attributes || {};
+    const codeFormat = typeof attrs.code_format === 'string' && attrs.code_format ? attrs.code_format : undefined;
+    const codeArmRequired = Boolean(attrs.code_arm_required);
+    const supportedFeatures = Number(attrs.supported_features ?? 0);
+    const supportsArmHome = !isAlarmPanel || supportedFeatures === 0 || (supportedFeatures & 1) !== 0;
+    const supportsArmAway = !isAlarmPanel || supportedFeatures === 0 || (supportedFeatures & 2) !== 0;
+
+    return {
+      rawState,
+      formattedState,
+      isAlarmPanel,
+      isArmed,
+      isArming,
+      isPendingOrTriggered,
+      canDisarm,
+      codeFormat,
+      codeArmRequired,
+      supportsArmHome,
+      supportsArmAway,
+    };
+  }
+
   private async handleKeypadAction(mode: 'arm' | 'away' | 'disarm'): Promise<void> {
     const keypadCfg = this.config?.default_alert?.keypad;
+    const targetEntity = keypadCfg?.entity?.trim();
+    const stateInfo = this.getKeypadStateInfo(targetEntity);
 
     if (mode === 'disarm') {
       const validPasscodes = (keypadCfg?.passcodes || [])
@@ -635,15 +703,19 @@ export class GuardianAlertsCard extends LitElement {
         return;
       }
 
+      if (validPasscodes.length === 0 && stateInfo.isAlarmPanel && stateInfo.codeFormat && !this.keypadCode) {
+        this.setKeypadFeedback('error', 'Enter passcode');
+        return;
+      }
+
       if (this.armDelayRemaining > 0) {
         this.cancelArmDelay();
       }
     }
 
-    const targetEntity = keypadCfg?.entity?.trim();
     if (!targetEntity) {
       this.keypadCode = '';
-      this.setKeypadFeedback('error', 'Set target entity in card settings');
+      this.setKeypadFeedback('error', 'Set alarm entity in card settings');
       return;
     }
 
@@ -653,8 +725,14 @@ export class GuardianAlertsCard extends LitElement {
         return;
       }
 
+      if (stateInfo.isAlarmPanel && stateInfo.codeFormat && stateInfo.codeArmRequired && !this.keypadCode) {
+        this.setKeypadFeedback('error', 'Enter passcode');
+        return;
+      }
+
       const armDelaySec = Math.max(0, Math.floor(Number(keypadCfg?.arm_delay || 0)));
       if (armDelaySec > 0) {
+        const pendingCode = this.keypadCode;
         this.keypadCode = '';
         this.keypadFeedback = null;
         this.armDelayMode = mode;
@@ -663,7 +741,7 @@ export class GuardianAlertsCard extends LitElement {
           if (this.armDelayRemaining <= 1) {
             const pendingMode = this.armDelayMode || mode;
             this.cancelArmDelay();
-            void this.executeKeypadService(pendingMode, targetEntity, '');
+            void this.executeKeypadService(pendingMode, targetEntity, pendingCode);
           } else {
             this.armDelayRemaining -= 1;
           }
@@ -727,27 +805,27 @@ export class GuardianAlertsCard extends LitElement {
       }
 
       this.closeKeypad();
-    } catch {
-      this.setKeypadFeedback('error', 'Failed to update entity');
+    } catch (err: unknown) {
+      this.keypadCode = '';
+      const errMsg =
+        err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string'
+          ? (err as { message: string }).message
+          : 'Failed to update alarm';
+      this.setKeypadFeedback('error', errMsg);
     }
   }
 
   private renderKeypadDropdown() {
     const keypadCfg = this.config?.default_alert?.keypad;
     const targetEntity = keypadCfg?.entity?.trim();
-    const currentEntityState = targetEntity ? this.hass?.states?.[targetEntity]?.state : undefined;
+    const stateInfo = this.getKeypadStateInfo(targetEntity);
     const hasPasscodes = (keypadCfg?.passcodes || []).some((c) => String(c).trim().length > 0);
     const maskedDots = '•'.repeat(this.keypadCode.length);
 
-    const stateLower = currentEntityState?.toLowerCase();
-    const isArmedOrAway =
-      stateLower !== undefined &&
-      (stateLower === 'armed' ||
-        stateLower.startsWith('armed') ||
-        stateLower === 'away' ||
-        stateLower === 'on' ||
-        stateLower === 'locked');
-    const showKeypadGrid = isArmedOrAway && this.armDelayRemaining === 0 && hasPasscodes;
+    const requiresDisarmCode = hasPasscodes || (stateInfo.isAlarmPanel && Boolean(stateInfo.codeFormat));
+    const requiresArmCode = stateInfo.isAlarmPanel && Boolean(stateInfo.codeFormat) && stateInfo.codeArmRequired;
+    const showKeypadGrid =
+      this.armDelayRemaining === 0 && (stateInfo.canDisarm ? requiresDisarmCode : requiresArmCode);
 
     return html`
       <div
@@ -761,11 +839,13 @@ export class GuardianAlertsCard extends LitElement {
             ${this.keypadCode.length > 0
               ? html`<span class="keypad-dots">${maskedDots}</span>`
               : html`<span class="keypad-placeholder">
-                  ${isArmedOrAway
-                    ? hasPasscodes
+                  ${stateInfo.canDisarm
+                    ? requiresDisarmCode
                       ? 'Enter code to disarm'
                       : 'Ready to disarm'
-                    : 'Select Arm or Away'}
+                    : requiresArmCode
+                      ? 'Enter code to arm'
+                      : 'Select Arm or Away'}
                 </span>`}
           </div>
           ${this.armDelayRemaining > 0
@@ -780,8 +860,8 @@ export class GuardianAlertsCard extends LitElement {
                     ${this.keypadFeedback.text}
                   </span>
                 `
-              : currentEntityState !== undefined
-                ? html`<span class="keypad-entity-state">${currentEntityState}</span>`
+              : stateInfo.formattedState !== undefined
+                ? html`<span class="keypad-entity-state">${stateInfo.formattedState}</span>`
                 : nothing}
         </div>
 
@@ -798,7 +878,7 @@ export class GuardianAlertsCard extends LitElement {
                 </button>
               </div>
             `
-          : isArmedOrAway
+          : stateInfo.canDisarm
             ? html`
                 <div class="keypad-actions single">
                   <button
@@ -812,23 +892,31 @@ export class GuardianAlertsCard extends LitElement {
                 </div>
               `
             : html`
-                <div class="keypad-actions">
-                  <button
-                    type="button"
-                    class="keypad-action-btn keypad-arm-btn"
-                    @click=${() => void this.handleKeypadAction('arm')}
-                  >
-                    <ha-icon icon="mdi:shield-lock"></ha-icon>
-                    <span>Arm</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="keypad-action-btn keypad-away-btn"
-                    @click=${() => void this.handleKeypadAction('away')}
-                  >
-                    <ha-icon icon="mdi:home-export-outline"></ha-icon>
-                    <span>Away</span>
-                  </button>
+                <div class="keypad-actions ${stateInfo.supportsArmHome && stateInfo.supportsArmAway ? '' : 'single'}">
+                  ${stateInfo.supportsArmHome
+                    ? html`
+                        <button
+                          type="button"
+                          class="keypad-action-btn keypad-arm-btn"
+                          @click=${() => void this.handleKeypadAction('arm')}
+                        >
+                          <ha-icon icon="mdi:shield-lock"></ha-icon>
+                          <span>Arm</span>
+                        </button>
+                      `
+                    : nothing}
+                  ${stateInfo.supportsArmAway
+                    ? html`
+                        <button
+                          type="button"
+                          class="keypad-action-btn keypad-away-btn"
+                          @click=${() => void this.handleKeypadAction('away')}
+                        >
+                          <ha-icon icon="mdi:home-export-outline"></ha-icon>
+                          <span>Away</span>
+                        </button>
+                      `
+                    : nothing}
                 </div>
               `}
 
@@ -941,17 +1029,12 @@ export class GuardianAlertsCard extends LitElement {
           const showKeypadButton =
             isSecureDefault && keypadCfg?.enabled !== false;
           const keypadEntityId = keypadCfg?.entity?.trim();
-          const alarmStateRaw =
-            isSecureDefault && keypadEntityId
-              ? this.hass?.states?.[keypadEntityId]?.state
-              : undefined;
-          const isArmedState =
-            alarmStateRaw !== undefined &&
-            (alarmStateRaw.toLowerCase() === 'armed' ||
-              alarmStateRaw.toLowerCase().startsWith('armed') ||
-              alarmStateRaw.toLowerCase() === 'away' ||
-              alarmStateRaw.toLowerCase() === 'on' ||
-              alarmStateRaw.toLowerCase() === 'locked');
+          const keypadStateInfo =
+            isSecureDefault && keypadEntityId ? this.getKeypadStateInfo(keypadEntityId) : undefined;
+          const alarmStateRaw = keypadStateInfo?.formattedState;
+          const isArmedState = keypadStateInfo?.isArmed ?? false;
+          const isArmingOrPending =
+            (keypadStateInfo?.isArming ?? false) || (keypadStateInfo?.isPendingOrTriggered ?? false);
 
           return html`
             <div class="banner-wrapper ${showKeypadButton && this.keypadOpen ? 'keypad-open' : ''}">
@@ -997,9 +1080,15 @@ export class GuardianAlertsCard extends LitElement {
                           : alarmStateRaw !== undefined
                             ? html`
                                 <span
-                                  class="alarm-status-badge ${isArmedState ? 'armed' : 'disarmed'}"
+                                  class="alarm-status-badge ${isArmingOrPending ? 'arming' : isArmedState ? 'armed' : 'disarmed'}"
                                 >
-                                  ${isArmedState ? '🔒' : '🔓'} ${alarmStateRaw}
+                                  ${keypadStateInfo?.isArming
+                                    ? '⏳'
+                                    : keypadStateInfo?.isPendingOrTriggered
+                                      ? '⚠️'
+                                      : isArmedState
+                                        ? '🔒'
+                                        : '🔓'} ${alarmStateRaw}
                                 </span>
                               `
                             : nothing}

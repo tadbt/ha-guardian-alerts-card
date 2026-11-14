@@ -417,9 +417,9 @@ export class GuardianAlertsCardEditor extends LitElement {
         schema.push(
           {
             name: 'keypad_entity',
-            label: 'Arm / Disarm Target Entity',
-            helper: 'Sets entity to "armed", "away", or "disarmed" (e.g. input_text, input_select, input_boolean, alarm_control_panel)',
-            selector: { entity: {} },
+            label: 'Alarm Control Panel Entity',
+            helper: 'Home Assistant alarm_control_panel entity (e.g. alarm_control_panel.home_alarm) for Arm Home, Arm Away, and Disarm',
+            selector: { entity: { domain: 'alarm_control_panel' } },
           },
           {
             name: 'keypad_chime',
@@ -842,7 +842,7 @@ export class GuardianAlertsCardEditor extends LitElement {
                             <div class="passcodes-title-group">
                               <span class="passcodes-title">Keypad Passcodes</span>
                               <span class="passcodes-hint">
-                                Numbers only, max 4 digits. Leave empty to allow Arm/Disarm without a code.
+                                Optional local passcodes (numbers only, max 4 digits). Leave empty to use your alarm_control_panel's own code or arm/disarm without a card passcode.
                               </span>
                             </div>
                             <div class="passcodes-header-actions">

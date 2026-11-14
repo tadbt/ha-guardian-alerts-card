@@ -209,6 +209,21 @@
                         last_changed: new Date().toISOString(),
                     };
                     card.hass = { ...mockHass };
+                } else if (domain === 'alarm_control_panel' && serviceData?.entity_id && mockHass.states[serviceData.entity_id]) {
+                    const nextState =
+                        service === 'alarm_arm_home'
+                            ? 'armed_home'
+                            : service === 'alarm_arm_away'
+                                ? 'armed_away'
+                                : service === 'alarm_disarm'
+                                    ? 'disarmed'
+                                    : mockHass.states[serviceData.entity_id].state;
+                    mockHass.states[serviceData.entity_id] = {
+                        ...mockHass.states[serviceData.entity_id],
+                        state: nextState,
+                        last_changed: new Date().toISOString(),
+                    };
+                    card.hass = { ...mockHass };
                 }
             }
         };
@@ -222,9 +237,7 @@
                 icon: 'mdi:shield-check',
                 keypad: {
                     enabled: true,
-                    entity: 'input_text.alarm_state',
-                    arm_value: 'armed',
-                    disarm_value: 'disarmed',
+                    entity: 'alarm_control_panel.main_alarm',
                     passcodes: ['1234', '5678'],
                 }
             },
