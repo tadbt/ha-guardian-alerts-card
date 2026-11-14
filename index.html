@@ -238,8 +238,13 @@
                 keypad: {
                     enabled: true,
                     entity: 'alarm_control_panel.main_alarm',
-                    passcodes: ['1234', '5678'],
                 }
+            },
+            triggered_alarm: {
+                enabled: true,
+                entity: 'alarm_control_panel.main_alarm',
+                message: 'Alarm Triggered — Enter Code to Disarm',
+                passcodes: ['1234', '5678'],
             },
             alerts: [
                 {

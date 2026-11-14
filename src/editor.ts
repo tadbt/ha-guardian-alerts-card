@@ -11,6 +11,7 @@ import {
   GuardianAlertsCardConfig,
   KeypadConfig,
   StateOperator,
+  TriggeredAlarmConfig,
 } from './types';
 import { getTemplate } from './templates';
 import { normalizeChimeType, playChime } from './chime';
@@ -111,11 +112,12 @@ const DOMAIN_STATE_SUGGESTIONS: Record<string, string[]> = {
 export class GuardianAlertsCardEditor extends LitElement {
   @property({ attribute: false }) public hass?: HomeAssistant;
   @state() private config?: GuardianAlertsCardConfig;
-  // Accordion state: only ONE rule can be open at a time (-1 = Default Rule, 0..N-1 = Alert Rule, null = all collapsed)
+  // Accordion state: only ONE rule can be open at a time (-2 = Triggered Alarm, -1 = Default Rule, 0..N-1 = Alert Rule, null = all collapsed)
   @state() private expandedRuleIndex: number | null = 0;
   @state() private revealPasscodes = false;
 
   private defaultSchemaCache = new Map<string, HaFormSchemaItem[]>();
+  private triggeredSchemaCache = new Map<boolean, HaFormSchemaItem[]>();
   private ruleSchemaCache = new Map<string, HaFormSchemaItem[]>();
 
   public connectedCallback(): void {
@@ -418,12 +420,12 @@ export class GuardianAlertsCardEditor extends LitElement {
           {
             name: 'keypad_entity',
             label: 'Alarm Control Panel Entity',
-            helper: 'Home Assistant alarm_control_panel entity (e.g. alarm_control_panel.home_alarm) for Arm Home, Arm Away, and Disarm',
+            helper: 'Home Assistant alarm_control_panel entity (e.g. alarm_control_panel.home_alarm) for Arm Home and Arm Away',
             selector: { entity: { domain: 'alarm_control_panel' } },
           },
           {
             name: 'keypad_chime',
-            label: 'Chime on Arm / Away / Disarm',
+            label: 'Chime on Arm / Away',
             selector: {
               select: {
                 mode: 'dropdown',
@@ -450,6 +452,67 @@ export class GuardianAlertsCardEditor extends LitElement {
     }
 
     this.defaultSchemaCache.set(cacheKey, schema);
+    return schema;
+  }
+
+  private getTriggeredAlarmSchema(enabled: boolean): HaFormSchemaItem[] {
+    const cached = this.triggeredSchemaCache.get(enabled);
+    if (cached) return cached;
+
+    const schema: HaFormSchemaItem[] = [
+      {
+        name: 'triggered_enabled',
+        label: 'Show Triggered Alarm Disarm Card when alarm is triggered',
+        selector: { boolean: {} },
+      },
+    ];
+
+    if (enabled) {
+      schema.push(
+        {
+          name: 'triggered_entity',
+          label: 'Alarm Control Panel Entity',
+          helper: 'Home Assistant alarm_control_panel entity to monitor for triggered state and disarm (defaults to Secure Card keypad entity if blank)',
+          selector: { entity: { domain: 'alarm_control_panel' } },
+        },
+        {
+          name: 'triggered_message',
+          label: 'Triggered Alarm Message',
+          selector: { text: {} },
+        },
+        {
+          name: 'triggered_template',
+          label: 'Banner Color / Template',
+          selector: {
+            select: {
+              mode: 'dropdown',
+              options: TEMPLATE_OPTIONS,
+            },
+          },
+        },
+        {
+          name: 'triggered_icon',
+          label: 'Triggered Alarm Icon',
+          selector: {
+            icon: {
+              placeholder: 'mdi:shield-alert',
+            },
+          },
+        },
+        {
+          name: 'triggered_chime',
+          label: 'Chime on Disarm',
+          selector: {
+            select: {
+              mode: 'dropdown',
+              options: CHIME_OPTIONS,
+            },
+          },
+        }
+      );
+    }
+
+    this.triggeredSchemaCache.set(enabled, schema);
     return schema;
   }
 
@@ -613,38 +676,69 @@ export class GuardianAlertsCardEditor extends LitElement {
     });
   }
 
-  private updateKeypadPasscodes(passcodes: string[]): void {
+  private onTriggeredAlarmFormChanged(ev: CustomEvent): void {
+    ev.stopPropagation();
     if (!this.config) return;
-    const prevDefault = this.config.default_alert || {};
-    const prevKeypad = prevDefault.keypad || {};
+    const value = ev.detail?.value;
+    if (!value) return;
+
+    const prevTriggered = this.config.triggered_alarm || {};
+    const prevChime = normalizeChimeType(prevTriggered.chime);
+    const nextChime = normalizeChimeType(value.triggered_chime ?? prevChime);
+    if (nextChime !== prevChime && nextChime !== 'none') {
+      playChime(nextChime);
+    }
+
+    const nextTriggered: TriggeredAlarmConfig = {
+      ...prevTriggered,
+      enabled: value.triggered_enabled !== false,
+      template: (value.triggered_template || 'CRITICAL') as AlertSeverity,
+      message: value.triggered_message ?? 'Alarm Triggered',
+      icon: value.triggered_icon || 'mdi:shield-alert',
+      chime: nextChime,
+    };
+
+    if (value.triggered_entity && String(value.triggered_entity).trim() !== '') {
+      nextTriggered.entity = String(value.triggered_entity).trim();
+    } else {
+      delete nextTriggered.entity;
+    }
+
     this.emitConfigChanged({
       ...this.config,
       type: this.config.type || 'custom:guardian-alerts-card',
-      default_alert: {
-        ...prevDefault,
-        keypad: {
-          ...prevKeypad,
-          passcodes,
-        },
+      triggered_alarm: nextTriggered,
+    });
+  }
+
+  private updateTriggeredPasscodes(passcodes: string[]): void {
+    if (!this.config) return;
+    const prevTriggered = this.config.triggered_alarm || {};
+    this.emitConfigChanged({
+      ...this.config,
+      type: this.config.type || 'custom:guardian-alerts-card',
+      triggered_alarm: {
+        ...prevTriggered,
+        passcodes,
       },
     });
   }
 
   private addPasscode(): void {
-    const existing = this.config?.default_alert?.keypad?.passcodes || [];
-    this.updateKeypadPasscodes([...existing, '']);
+    const existing = this.config?.triggered_alarm?.passcodes || [];
+    this.updateTriggeredPasscodes([...existing, '']);
   }
 
   private updatePasscode(index: number, value: string): void {
     const sanitized = value.replace(/\D/g, '').slice(0, 4);
-    const existing = [...(this.config?.default_alert?.keypad?.passcodes || [])];
+    const existing = [...(this.config?.triggered_alarm?.passcodes || [])];
     existing[index] = sanitized;
-    this.updateKeypadPasscodes(existing);
+    this.updateTriggeredPasscodes(existing);
   }
 
   private removePasscode(index: number): void {
-    const existing = this.config?.default_alert?.keypad?.passcodes || [];
-    this.updateKeypadPasscodes(existing.filter((_, i) => i !== index));
+    const existing = this.config?.triggered_alarm?.passcodes || [];
+    this.updateTriggeredPasscodes(existing.filter((_, i) => i !== index));
   }
 
   private onRuleFormChanged(index: number, ev: CustomEvent): void {
@@ -784,7 +878,6 @@ export class GuardianAlertsCardEditor extends LitElement {
     const showDefault = this.config.show_default_alert !== false;
     const keypadCfg = this.config.default_alert?.keypad;
     const keypadEnabled = keypadCfg?.enabled !== false;
-    const passcodes = keypadCfg?.passcodes || [];
     const isDefaultOpen = this.expandedRuleIndex === -1;
     const defaultAlertData = {
       show_default_alert: showDefault,
@@ -796,6 +889,19 @@ export class GuardianAlertsCardEditor extends LitElement {
       keypad_entity: keypadCfg?.entity || '',
       keypad_arm_delay: Math.max(0, Math.floor(Number(keypadCfg?.arm_delay ?? 0))),
       keypad_chime: normalizeChimeType(keypadCfg?.chime),
+    };
+
+    const triggeredCfg = this.config.triggered_alarm;
+    const triggeredEnabled = triggeredCfg?.enabled !== false;
+    const passcodes = triggeredCfg?.passcodes || [];
+    const isTriggeredOpen = this.expandedRuleIndex === -2;
+    const triggeredAlarmData = {
+      triggered_enabled: triggeredEnabled,
+      triggered_entity: triggeredCfg?.entity || '',
+      triggered_message: triggeredCfg?.message ?? 'Alarm Triggered',
+      triggered_template: (triggeredCfg?.template || 'CRITICAL').toUpperCase(),
+      triggered_icon: triggeredCfg?.icon || 'mdi:shield-alert',
+      triggered_chime: normalizeChimeType(triggeredCfg?.chime),
     };
 
     return html`
@@ -834,15 +940,54 @@ export class GuardianAlertsCardEditor extends LitElement {
                     .computeHelper=${this.computeHelper}
                     @value-changed=${(ev: CustomEvent) => this.onDefaultAlertFormChanged(ev)}
                   ></ha-form>
+                </div>
+              `
+            : nothing}
+        </div>
 
-                  ${showDefault && keypadEnabled
+        <!-- Triggered Alarm Disarm Card (Collapsible) -->
+        <div class="rule-card triggered-card">
+          <div
+            class="rule-header clickable"
+            @click=${() => this.toggleAccordion(-2)}
+          >
+            <div class="rule-header-left">
+              <span class="priority-pill priority-triggered">TRIGGERED</span>
+              <span class="rule-title">
+                🚨 ${triggeredAlarmData.triggered_message || 'Alarm Triggered'} (${triggeredEnabled ? 'Enabled' : 'Disabled'})
+              </span>
+            </div>
+            <div class="rule-header-actions">
+              <button
+                type="button"
+                class="btn-collapse"
+                title=${isTriggeredOpen ? 'Collapse' : 'Expand'}
+              >
+                <span class="chevron ${isTriggeredOpen ? 'open' : ''}">▼</span>
+              </button>
+            </div>
+          </div>
+
+          ${isTriggeredOpen
+            ? html`
+                <div class="rule-body">
+                  <ha-form
+                    .hass=${this.hass}
+                    .data=${triggeredAlarmData}
+                    .schema=${this.getTriggeredAlarmSchema(triggeredEnabled)}
+                    .computeLabel=${this.computeLabel}
+                    .computeHelper=${this.computeHelper}
+                    @value-changed=${(ev: CustomEvent) => this.onTriggeredAlarmFormChanged(ev)}
+                  ></ha-form>
+
+                  ${triggeredEnabled
                     ? html`
                         <div class="passcodes-section">
                           <div class="passcodes-header">
                             <div class="passcodes-title-group">
-                              <span class="passcodes-title">Keypad Passcodes</span>
+                              <span class="passcodes-title">Disarm Passcodes</span>
                               <span class="passcodes-hint">
-                                Optional local passcodes (numbers only, max 4 digits). Leave empty to use your alarm_control_panel's own code or arm/disarm without a card passcode.
+                                Optional local passcodes (numbers only, max 4 digits) required to disarm when the alarm is triggered. Leave empty to use your alarm_control_panel's own code or disarm without a card passcode.
                               </span>
                             </div>
                             <div class="passcodes-header-actions">
@@ -1041,6 +1186,14 @@ export class GuardianAlertsCardEditor extends LitElement {
       );
     }
 
+    .triggered-card {
+      border-color: color-mix(
+        in srgb,
+        var(--error-color, #ef4444) 45%,
+        var(--divider-color, rgba(255, 255, 255, 0.12))
+      );
+    }
+
     .rule-header {
       display: flex;
       justify-content: space-between;
@@ -1136,6 +1289,12 @@ export class GuardianAlertsCardEditor extends LitElement {
       background: rgba(34, 197, 94, 0.2);
       color: #4ade80;
       border: 1px solid rgba(34, 197, 94, 0.45);
+    }
+
+    .priority-triggered {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.45);
     }
 
     .btn-collapse {

@@ -32,11 +32,11 @@ export interface AlertRule {
 }
 
 export interface KeypadConfig {
-    enabled?: boolean; // Defaults to true on the secure card
-    entity?: string; // Target entity to update on Arm/Away/Disarm
+    enabled?: boolean; // Defaults to true on the secure card (Arm / Away only)
+    entity?: string; // Target entity to update on Arm / Away
     arm_delay?: number; // Seconds delay before arming (default: 0)
-    chime?: ChimeType; // Optional chime played on Arm / Away / Disarm
-    passcodes?: string[]; // One or more valid passcodes (required for Disarm)
+    chime?: ChimeType; // Optional chime played on Arm / Away
+    passcodes?: string[]; // Legacy optional passcodes
 }
 
 export interface DefaultAlertConfig {
@@ -48,10 +48,22 @@ export interface DefaultAlertConfig {
     keypad?: KeypadConfig;
 }
 
+export interface TriggeredAlarmConfig {
+    enabled?: boolean; // Defaults to true
+    entity?: string; // Alarm control panel entity to monitor for 'triggered' and disarm
+    template?: AlertSeverity; // Defaults to 'CRITICAL'
+    message?: string; // Defaults to 'Alarm Triggered'
+    icon?: string; // Defaults to 'mdi:shield-alert'
+    icon_color?: string;
+    chime?: ChimeType; // Optional chime played on Disarm
+    passcodes?: string[]; // One or more valid passcodes required to disarm
+}
+
 export interface GuardianAlertsCardConfig {
     type: string;
     title?: string;
     show_default_alert?: boolean;
     default_alert?: DefaultAlertConfig;
+    triggered_alarm?: TriggeredAlarmConfig;
     alerts: AlertRule[];
 }
