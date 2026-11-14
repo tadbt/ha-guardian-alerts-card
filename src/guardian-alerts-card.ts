@@ -76,6 +76,7 @@ export class GuardianAlertsCard extends LitElement {
   private snoozedUntilMap = new Map<string, number>();
   private snoozeTimers = new Map<string, number>();
   private hasInitializedStates = false;
+  private wasAlarmTriggered = false;
 
   public connectedCallback(): void {
     super.connectedCallback();
@@ -173,6 +174,7 @@ export class GuardianAlertsCard extends LitElement {
     this.dismissedEntryKeys.clear();
     this.snoozedUntilMap.clear();
     this.hasInitializedStates = false;
+    this.wasAlarmTriggered = false;
   }
 
   private getMonitoredEntities(rule: AlertRule): string[] {
@@ -485,6 +487,19 @@ export class GuardianAlertsCard extends LitElement {
 
     if (changedProps.has('hass') || changedProps.has('config')) {
       this.evaluateRules();
+
+      const keypadCfg = this.config.default_alert?.keypad;
+      const keypadEnabled = keypadCfg?.enabled !== false;
+      const keypadEntityId = keypadCfg?.entity?.trim();
+      const isTriggered = Boolean(
+        keypadEnabled &&
+          keypadEntityId &&
+          this.getKeypadStateInfo(keypadEntityId).isTriggered
+      );
+      if (isTriggered && !this.wasAlarmTriggered) {
+        this.keypadOpen = true;
+      }
+      this.wasAlarmTriggered = isTriggered;
     }
   }
 
@@ -627,6 +642,7 @@ export class GuardianAlertsCard extends LitElement {
     isAlarmPanel: boolean;
     isArmed: boolean;
     isArming: boolean;
+    isTriggered: boolean;
     isPendingOrTriggered: boolean;
     canDisarm: boolean;
     codeFormat: string | undefined;
@@ -641,7 +657,8 @@ export class GuardianAlertsCard extends LitElement {
     const isAlarmPanel = entityId?.startsWith('alarm_control_panel.') ?? false;
 
     const isArming = stateLower === 'arming';
-    const isPendingOrTriggered = stateLower === 'pending' || stateLower === 'triggered';
+    const isTriggered = stateLower === 'triggered';
+    const isPendingOrTriggered = stateLower === 'pending' || isTriggered;
     const isArmed =
       stateLower !== undefined &&
       (stateLower === 'armed' ||
@@ -678,6 +695,7 @@ export class GuardianAlertsCard extends LitElement {
       isAlarmPanel,
       isArmed,
       isArming,
+      isTriggered,
       isPendingOrTriggered,
       canDisarm,
       codeFormat,
@@ -994,25 +1012,35 @@ export class GuardianAlertsCard extends LitElement {
 
     let entriesToRender = activeEntries;
 
-    if (entriesToRender.length === 0) {
-      if (this.config.show_default_alert === false) return nothing;
+    const keypadCfg = this.config.default_alert?.keypad;
+    const keypadEnabled = keypadCfg?.enabled !== false;
+    const keypadEntityId = keypadCfg?.entity?.trim();
+    const keypadStateInfo = keypadEntityId ? this.getKeypadStateInfo(keypadEntityId) : undefined;
+    const isAlarmTriggered = keypadStateInfo?.isTriggered ?? false;
+    const showDefaultAlert = this.config.show_default_alert !== false;
 
+    const createDefaultEntry = () => {
       const defaultAlert = this.config.default_alert;
-      entriesToRender = [
-        {
-          index: null,
-          key: null,
-          entityId: defaultAlert?.entity || '',
-          rule: {
-            entity: defaultAlert?.entity || '',
-            state: '',
-            template: defaultAlert?.template || 'SECURE',
-            message: defaultAlert?.message || 'All Secured',
-            icon: defaultAlert?.icon || 'mdi:shield-check',
-            icon_color: defaultAlert?.icon_color,
-          },
+      return {
+        index: null,
+        key: null,
+        entityId: defaultAlert?.entity || '',
+        rule: {
+          entity: defaultAlert?.entity || '',
+          state: '',
+          template: defaultAlert?.template || 'SECURE',
+          message: defaultAlert?.message || 'All Secured',
+          icon: defaultAlert?.icon || 'mdi:shield-check',
+          icon_color: defaultAlert?.icon_color,
         },
-      ];
+      };
+    };
+
+    if (entriesToRender.length === 0) {
+      if (!showDefaultAlert) return nothing;
+      entriesToRender = [createDefaultEntry()];
+    } else if (showDefaultAlert && keypadEnabled && isAlarmTriggered) {
+      entriesToRender = [createDefaultEntry(), ...entriesToRender];
     }
 
     return html`
@@ -1025,16 +1053,13 @@ export class GuardianAlertsCard extends LitElement {
           const lastChanged = index !== null ? this.formatLastChanged(entityId) : null;
           const isHoldMenuOpen = key !== null && this.holdMenuKey === key;
           const isSecureDefault = index === null;
-          const keypadCfg = this.config.default_alert?.keypad;
-          const showKeypadButton =
-            isSecureDefault && keypadCfg?.enabled !== false;
-          const keypadEntityId = keypadCfg?.entity?.trim();
-          const keypadStateInfo =
-            isSecureDefault && keypadEntityId ? this.getKeypadStateInfo(keypadEntityId) : undefined;
-          const alarmStateRaw = keypadStateInfo?.formattedState;
-          const isArmedState = keypadStateInfo?.isArmed ?? false;
+          const showKeypadButton = isSecureDefault && keypadEnabled;
+          const entryKeypadStateInfo = isSecureDefault ? keypadStateInfo : undefined;
+          const alarmStateRaw = entryKeypadStateInfo?.formattedState;
+          const isArmedState = entryKeypadStateInfo?.isArmed ?? false;
           const isArmingOrPending =
-            (keypadStateInfo?.isArming ?? false) || (keypadStateInfo?.isPendingOrTriggered ?? false);
+            (entryKeypadStateInfo?.isArming ?? false) ||
+            (entryKeypadStateInfo?.isPendingOrTriggered ?? false);
 
           return html`
             <div class="banner-wrapper ${showKeypadButton && this.keypadOpen ? 'keypad-open' : ''}">
@@ -1082,9 +1107,9 @@ export class GuardianAlertsCard extends LitElement {
                                 <span
                                   class="alarm-status-badge ${isArmingOrPending ? 'arming' : isArmedState ? 'armed' : 'disarmed'}"
                                 >
-                                  ${keypadStateInfo?.isArming
+                                  ${entryKeypadStateInfo?.isArming
                                     ? '⏳'
-                                    : keypadStateInfo?.isPendingOrTriggered
+                                    : entryKeypadStateInfo?.isPendingOrTriggered
                                       ? '⚠️'
                                       : isArmedState
                                         ? '🔒'
