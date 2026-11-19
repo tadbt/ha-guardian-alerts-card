@@ -58,7 +58,7 @@ var e = globalThis, t = e.ShadowRoot && (e.ShadyCSS === void 0 || e.ShadyCSS.nat
 		}
 		return n;
 	}
-}, x = (e, t) => !l(e, t), ee = {
+}, x = (e, t) => !l(e, t), S = {
 	attribute: !0,
 	type: String,
 	converter: b,
@@ -67,14 +67,14 @@ var e = globalThis, t = e.ShadowRoot && (e.ShadyCSS === void 0 || e.ShadyCSS.nat
 	hasChanged: x
 };
 Symbol.metadata ??= Symbol("metadata"), h.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
-var S = class extends HTMLElement {
+var C = class extends HTMLElement {
 	static addInitializer(e) {
 		this._$Ei(), (this.l ??= []).push(e);
 	}
 	static get observedAttributes() {
 		return this.finalize(), this._$Eh && [...this._$Eh.keys()];
 	}
-	static createProperty(e, t = ee) {
+	static createProperty(e, t = S) {
 		if (t.state && (t.attribute = !1), this._$Ei(), this.prototype.hasOwnProperty(e) && ((t = Object.create(t)).wrapped = !0), this.elementProperties.set(e, t), !t.noAccessor) {
 			let n = Symbol(), r = this.getPropertyDescriptor(e, n, t);
 			r !== void 0 && u(this.prototype, e, r);
@@ -100,7 +100,7 @@ var S = class extends HTMLElement {
 		};
 	}
 	static getPropertyOptions(e) {
-		return this.elementProperties.get(e) ?? ee;
+		return this.elementProperties.get(e) ?? S;
 	}
 	static _$Ei() {
 		if (this.hasOwnProperty(y("elementProperties"))) return;
@@ -251,16 +251,16 @@ var S = class extends HTMLElement {
 	updated(e) {}
 	firstUpdated(e) {}
 };
-S.elementStyles = [], S.shadowRootOptions = { mode: "open" }, S[y("elementProperties")] = /* @__PURE__ */ new Map(), S[y("finalized")] = /* @__PURE__ */ new Map(), v?.({ ReactiveElement: S }), (h.reactiveElementVersions ??= []).push("2.1.2");
+C.elementStyles = [], C.shadowRootOptions = { mode: "open" }, C[y("elementProperties")] = /* @__PURE__ */ new Map(), C[y("finalized")] = /* @__PURE__ */ new Map(), v?.({ ReactiveElement: C }), (h.reactiveElementVersions ??= []).push("2.1.2");
 // node_modules/lit-html/lit-html.js
-var C = globalThis, te = (e) => e, w = C.trustedTypes, ne = w ? w.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, re = "$lit$", T = `lit$${Math.random().toFixed(9).slice(2)}$`, ie = "?" + T, ae = `<${ie}>`, E = document, D = () => E.createComment(""), O = (e) => e === null || typeof e != "object" && typeof e != "function", k = Array.isArray, oe = (e) => k(e) || typeof e?.[Symbol.iterator] == "function", A = "[ 	\n\f\r]", j = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, se = /-->/g, ce = />/g, M = RegExp(`>|${A}(?:([^\\s"'>=/]+)(${A}*=${A}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`, "g"), le = /'/g, ue = /"/g, de = /^(?:script|style|textarea|title)$/i, N = ((e) => (t, ...n) => ({
+var w = globalThis, ee = (e) => e, T = w.trustedTypes, te = T ? T.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, ne = "$lit$", E = `lit$${Math.random().toFixed(9).slice(2)}$`, re = "?" + E, ie = `<${re}>`, D = document, O = () => D.createComment(""), k = (e) => e === null || typeof e != "object" && typeof e != "function", ae = Array.isArray, oe = (e) => ae(e) || typeof e?.[Symbol.iterator] == "function", A = "[ 	\n\f\r]", j = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, se = /-->/g, ce = />/g, M = RegExp(`>|${A}(?:([^\\s"'>=/]+)(${A}*=${A}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`, "g"), le = /'/g, ue = /"/g, de = /^(?:script|style|textarea|title)$/i, N = ((e) => (t, ...n) => ({
 	_$litType$: e,
 	strings: t,
 	values: n
-}))(1), P = Symbol.for("lit-noChange"), F = Symbol.for("lit-nothing"), fe = /* @__PURE__ */ new WeakMap(), I = E.createTreeWalker(E, 129);
+}))(1), P = Symbol.for("lit-noChange"), F = Symbol.for("lit-nothing"), fe = /* @__PURE__ */ new WeakMap(), I = D.createTreeWalker(D, 129);
 function pe(e, t) {
-	if (!k(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
-	return ne === void 0 ? t : ne.createHTML(t);
+	if (!ae(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
+	return te === void 0 ? t : te.createHTML(t);
 }
 var me = (e, t) => {
 	let n = e.length - 1, r = [], i, a = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", o = j;
@@ -268,7 +268,7 @@ var me = (e, t) => {
 		let n = e[t], s, c, l = -1, u = 0;
 		for (; u < n.length && (o.lastIndex = u, c = o.exec(n), c !== null);) u = o.lastIndex, o === j ? c[1] === "!--" ? o = se : c[1] === void 0 ? c[2] === void 0 ? c[3] !== void 0 && (o = M) : (de.test(c[2]) && (i = RegExp("</" + c[2], "g")), o = M) : o = ce : o === M ? c[0] === ">" ? (o = i ?? j, l = -1) : c[1] === void 0 ? l = -2 : (l = o.lastIndex - c[2].length, s = c[1], o = c[3] === void 0 ? M : c[3] === "\"" ? ue : le) : o === ue || o === le ? o = M : o === se || o === ce ? o = j : (o = M, i = void 0);
 		let d = o === M && e[t + 1].startsWith("/>") ? " " : "";
-		a += o === j ? n + ae : l >= 0 ? (r.push(s), n.slice(0, l) + re + n.slice(l) + T + d) : n + T + (l === -2 ? t : d);
+		a += o === j ? n + ie : l >= 0 ? (r.push(s), n.slice(0, l) + ne + n.slice(l) + E + d) : n + E + (l === -2 ? t : d);
 	}
 	return [pe(e, a + (e[n] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), r];
 }, L = class e {
@@ -282,8 +282,8 @@ var me = (e, t) => {
 		}
 		for (; (i = I.nextNode()) !== null && c.length < s;) {
 			if (i.nodeType === 1) {
-				if (i.hasAttributes()) for (let e of i.getAttributeNames()) if (e.endsWith(re)) {
-					let t = u[o++], n = i.getAttribute(e).split(T), r = /([.?@])?(.*)/.exec(t);
+				if (i.hasAttributes()) for (let e of i.getAttributeNames()) if (e.endsWith(ne)) {
+					let t = u[o++], n = i.getAttribute(e).split(E), r = /([.?@])?(.*)/.exec(t);
 					c.push({
 						type: 1,
 						index: a,
@@ -291,45 +291,45 @@ var me = (e, t) => {
 						strings: n,
 						ctor: r[1] === "." ? ge : r[1] === "?" ? _e : r[1] === "@" ? ve : B
 					}), i.removeAttribute(e);
-				} else e.startsWith(T) && (c.push({
+				} else e.startsWith(E) && (c.push({
 					type: 6,
 					index: a
 				}), i.removeAttribute(e));
 				if (de.test(i.tagName)) {
-					let e = i.textContent.split(T), t = e.length - 1;
+					let e = i.textContent.split(E), t = e.length - 1;
 					if (t > 0) {
-						i.textContent = w ? w.emptyScript : "";
-						for (let n = 0; n < t; n++) i.append(e[n], D()), I.nextNode(), c.push({
+						i.textContent = T ? T.emptyScript : "";
+						for (let n = 0; n < t; n++) i.append(e[n], O()), I.nextNode(), c.push({
 							type: 2,
 							index: ++a
 						});
-						i.append(e[t], D());
+						i.append(e[t], O());
 					}
 				}
 			} else if (i.nodeType === 8) {
-				if (i.data === ie) c.push({
+				if (i.data === re) c.push({
 					type: 2,
 					index: a
 				});
 				else {
 					let e = -1;
-					for (; (e = i.data.indexOf(T, e + 1)) !== -1;) c.push({
+					for (; (e = i.data.indexOf(E, e + 1)) !== -1;) c.push({
 						type: 7,
 						index: a
-					}), e += T.length - 1;
+					}), e += E.length - 1;
 				}
 			}
 			a++;
 		}
 	}
 	static createElement(e, t) {
-		let n = E.createElement("template");
+		let n = D.createElement("template");
 		return n.innerHTML = e, n;
 	}
 };
 function R(e, t, n = e, r) {
 	if (t === P) return t;
-	let i = r === void 0 ? n._$Cl : n._$Co?.[r], a = O(t) ? void 0 : t._$litDirective$;
+	let i = r === void 0 ? n._$Cl : n._$Co?.[r], a = k(t) ? void 0 : t._$litDirective$;
 	return i?.constructor !== a && (i?._$AO?.(!1), a === void 0 ? i = void 0 : (i = new a(e), i._$AT(e, n, r)), r === void 0 ? n._$Cl = i : (n._$Co ??= [])[r] = i), i !== void 0 && (t = R(e, i._$AS(e, t.values), i, r)), t;
 }
 var he = class {
@@ -343,7 +343,7 @@ var he = class {
 		return this._$AM._$AU;
 	}
 	u(e) {
-		let { el: { content: t }, parts: n } = this._$AD, r = (e?.creationScope ?? E).importNode(t, !0);
+		let { el: { content: t }, parts: n } = this._$AD, r = (e?.creationScope ?? D).importNode(t, !0);
 		I.currentNode = r;
 		let i = I.nextNode(), a = 0, o = 0, s = n[0];
 		for (; s !== void 0;) {
@@ -353,7 +353,7 @@ var he = class {
 			}
 			a !== s?.index && (i = I.nextNode(), a++);
 		}
-		return I.currentNode = E, r;
+		return I.currentNode = D, r;
 	}
 	p(e) {
 		let t = 0;
@@ -377,7 +377,7 @@ var he = class {
 		return this._$AB;
 	}
 	_$AI(e, t = this) {
-		e = R(this, e, t), O(e) ? e === F || e == null || e === "" ? (this._$AH !== F && this._$AR(), this._$AH = F) : e !== this._$AH && e !== P && this._(e) : e._$litType$ === void 0 ? e.nodeType === void 0 ? oe(e) ? this.k(e) : this._(e) : this.T(e) : this.$(e);
+		e = R(this, e, t), k(e) ? e === F || e == null || e === "" ? (this._$AH !== F && this._$AR(), this._$AH = F) : e !== this._$AH && e !== P && this._(e) : e._$litType$ === void 0 ? e.nodeType === void 0 ? oe(e) ? this.k(e) : this._(e) : this.T(e) : this.$(e);
 	}
 	O(e) {
 		return this._$AA.parentNode.insertBefore(e, this._$AB);
@@ -386,7 +386,7 @@ var he = class {
 		this._$AH !== e && (this._$AR(), this._$AH = this.O(e));
 	}
 	_(e) {
-		this._$AH !== F && O(this._$AH) ? this._$AA.nextSibling.data = e : this.T(E.createTextNode(e)), this._$AH = e;
+		this._$AH !== F && k(this._$AH) ? this._$AA.nextSibling.data = e : this.T(D.createTextNode(e)), this._$AH = e;
 	}
 	$(e) {
 		let { values: t, _$litType$: n } = e, r = typeof n == "number" ? this._$AC(e) : (n.el === void 0 && (n.el = L.createElement(pe(n.h, n.h[0]), this.options)), n);
@@ -401,15 +401,15 @@ var he = class {
 		return t === void 0 && fe.set(e.strings, t = new L(e)), t;
 	}
 	k(t) {
-		k(this._$AH) || (this._$AH = [], this._$AR());
+		ae(this._$AH) || (this._$AH = [], this._$AR());
 		let n = this._$AH, r, i = 0;
-		for (let a of t) i === n.length ? n.push(r = new e(this.O(D()), this.O(D()), this, this.options)) : r = n[i], r._$AI(a), i++;
+		for (let a of t) i === n.length ? n.push(r = new e(this.O(O()), this.O(O()), this, this.options)) : r = n[i], r._$AI(a), i++;
 		i < n.length && (this._$AR(r && r._$AB.nextSibling, i), n.length = i);
 	}
 	_$AR(e = this._$AA.nextSibling, t) {
 		for (this._$AP?.(!1, !0, t); e !== this._$AB;) {
-			let t = te(e).nextSibling;
-			te(e).remove(), e = t;
+			let t = ee(e).nextSibling;
+			ee(e).remove(), e = t;
 		}
 	}
 	setConnected(e) {
@@ -427,10 +427,10 @@ var he = class {
 	}
 	_$AI(e, t = this, n, r) {
 		let i = this.strings, a = !1;
-		if (i === void 0) e = R(this, e, t, 0), a = !O(e) || e !== this._$AH && e !== P, a && (this._$AH = e);
+		if (i === void 0) e = R(this, e, t, 0), a = !k(e) || e !== this._$AH && e !== P, a && (this._$AH = e);
 		else {
 			let r = e, o, s;
-			for (e = i[0], o = 0; o < i.length - 1; o++) s = R(this, r[n + o], t, o), s === P && (s = this._$AH[o]), a ||= !O(s) || s !== this._$AH[o], s === F ? e = F : e !== F && (e += (s ?? "") + i[o + 1]), this._$AH[o] = s;
+			for (e = i[0], o = 0; o < i.length - 1; o++) s = R(this, r[n + o], t, o), s === P && (s = this._$AH[o]), a ||= !k(s) || s !== this._$AH[o], s === F ? e = F : e !== F && (e += (s ?? "") + i[o + 1]), this._$AH[o] = s;
 		}
 		a && !r && this.j(e);
 	}
@@ -473,16 +473,16 @@ var he = class {
 	_$AI(e) {
 		R(this, e);
 	}
-}, be = C.litHtmlPolyfillSupport;
-be?.(L, z), (C.litHtmlVersions ??= []).push("3.3.3");
+}, be = w.litHtmlPolyfillSupport;
+be?.(L, z), (w.litHtmlVersions ??= []).push("3.3.3");
 var xe = (e, t, n) => {
 	let r = n?.renderBefore ?? t, i = r._$litPart$;
 	if (i === void 0) {
 		let e = n?.renderBefore ?? null;
-		r._$litPart$ = i = new z(t.insertBefore(D(), e), e, void 0, n ?? {});
+		r._$litPart$ = i = new z(t.insertBefore(O(), e), e, void 0, n ?? {});
 	}
 	return i._$AI(e), i;
-}, V = globalThis, H = class extends S {
+}, V = globalThis, H = class extends C {
 	constructor() {
 		super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
 	}
@@ -994,7 +994,7 @@ var Ne = {
 		value: "P4",
 		label: "P4 — Low Priority"
 	}
-], Z = [
+], Fe = [
 	{
 		value: "SECURE",
 		label: "SECURE (Green — Static Shield)"
@@ -1011,7 +1011,7 @@ var Ne = {
 		value: "CRITICAL",
 		label: "CRITICAL (Red — Slow Flash)"
 	}
-], Fe = [
+], Ie = [
 	{
 		value: "equals",
 		label: "Equal (=) — Matches any selected state"
@@ -1040,7 +1040,7 @@ var Ne = {
 		value: "lte",
 		label: "Less or Equal (≤) — Numeric value at or below"
 	}
-], Ie = [
+], Z = [
 	{
 		value: "none",
 		label: "None (Silent)"
@@ -1345,7 +1345,7 @@ var Ne = {
 			label: "Default Banner Color / Template",
 			selector: { select: {
 				mode: "dropdown",
-				options: Z
+				options: Fe
 			} }
 		}, {
 			name: "icon",
@@ -1365,7 +1365,7 @@ var Ne = {
 			label: "Chime on Arm / Away",
 			selector: { select: {
 				mode: "dropdown",
-				options: Ie
+				options: Z
 			} }
 		}, {
 			name: "keypad_arm_delay",
@@ -1402,7 +1402,7 @@ var Ne = {
 			label: "Banner Color / Template",
 			selector: { select: {
 				mode: "dropdown",
-				options: Z
+				options: Fe
 			} }
 		}, {
 			name: "triggered_icon",
@@ -1413,7 +1413,7 @@ var Ne = {
 			label: "Chime on Disarm",
 			selector: { select: {
 				mode: "dropdown",
-				options: Ie
+				options: Z
 			} }
 		}), this.triggeredSchemaCache.set(e, n), n;
 	}
@@ -1434,7 +1434,7 @@ var Ne = {
 				label: "Alert Template / Severity Color",
 				selector: { select: {
 					mode: "dropdown",
-					options: Z
+					options: Fe
 				} }
 			},
 			{
@@ -1449,7 +1449,7 @@ var Ne = {
 				label: "State Match Condition",
 				selector: { select: {
 					mode: "dropdown",
-					options: Fe
+					options: Ie
 				} }
 			},
 			{
@@ -1476,7 +1476,7 @@ var Ne = {
 				helper: "Selecting a chime plays a preview sound",
 				selector: { select: {
 					mode: "dropdown",
-					options: Ie
+					options: Z
 				} }
 			},
 			{
@@ -2453,9 +2453,9 @@ var $ = class extends H {
 			}, 1e3);
 		} else await this.executeKeypadService(e, n, this.keypadCode, t?.chime);
 	}
-	async handleDisarmAction() {
-		let e = this.config?.triggered_alarm, t = e?.entity?.trim() || this.config?.default_alert?.keypad?.entity?.trim(), n = this.getKeypadStateInfo(t), r = (e?.passcodes || []).map((e) => String(e).replace(/\D/g, "").slice(0, 4)).filter((e) => e.length > 0);
-		r.length > 0 && !r.includes(this.keypadCode) ? (this.keypadCode = "", this.setKeypadFeedback("error", "Invalid passcode")) : r.length === 0 && n.isAlarmPanel && n.codeFormat && !this.keypadCode ? this.setKeypadFeedback("error", "Enter passcode") : t ? (this.armDelayRemaining > 0 && this.cancelArmDelay(), await this.executeKeypadService("disarm", t, this.keypadCode, e?.chime)) : (this.keypadCode = "", this.setKeypadFeedback("error", "Set alarm entity in Triggered Alarm settings"));
+	async handleDisarmAction(e) {
+		let t = this.config?.triggered_alarm, n = e?.trim() || t?.entity?.trim() || this.config?.default_alert?.keypad?.entity?.trim(), r = this.getKeypadStateInfo(n), i = (t?.passcodes || []).map((e) => String(e).replace(/\D/g, "").slice(0, 4)).filter((e) => e.length > 0);
+		i.length > 0 && !i.includes(this.keypadCode) ? (this.keypadCode = "", this.setKeypadFeedback("error", "Invalid passcode")) : i.length === 0 && r.isAlarmPanel && r.codeFormat && !this.keypadCode ? this.setKeypadFeedback("error", "Enter passcode") : n ? (this.armDelayRemaining > 0 && this.cancelArmDelay(), await this.executeKeypadService("disarm", n, this.keypadCode, t?.chime)) : (this.keypadCode = "", this.setKeypadFeedback("error", "Set alarm entity in Triggered Alarm settings"));
 	}
 	async executeKeypadService(e, t, n, r) {
 		let i = r ?? this.config?.default_alert?.keypad?.chime, a = e === "arm" ? "armed" : e === "away" ? "away" : "disarmed", o = t.split(".")[0], s = e === "arm" || e === "away";
@@ -2627,7 +2627,7 @@ var $ = class extends H {
           <button
             type="button"
             class="keypad-action-btn keypad-disarm-btn"
-            @click=${() => void this.handleDisarmAction()}
+            @click=${() => void this.handleDisarmAction(e)}
           >
             <ha-icon icon="mdi:shield-off"></ha-icon>
             <span>Disarm</span>
@@ -2657,7 +2657,7 @@ var $ = class extends H {
 			let n = Re[(e.rule.priority || "P2").toUpperCase()] ?? 2, r = Re[(t.rule.priority || "P2").toUpperCase()] ?? 2;
 			return n === r ? (e.index ?? 0) - (t.index ?? 0) : n - r;
 		});
-		let t = e, n = this.config.default_alert?.keypad, r = n?.enabled !== !1, i = n?.entity?.trim(), a = i ? this.getKeypadStateInfo(i) : void 0, o = this.config.show_default_alert !== !1, s = this.config.triggered_alarm, c = s?.enabled !== !1, l = s?.entity?.trim() || i, u = l ? this.getKeypadStateInfo(l) : void 0, d = u?.isTriggered ?? !1, f = () => {
+		let t = e, n = this.config.default_alert?.keypad, r = n?.enabled !== !1, i = n?.entity?.trim(), a = i ? this.getKeypadStateInfo(i) : void 0, o = this.config.show_default_alert !== !1, s = this.config.triggered_alarm, c = s?.enabled !== !1, l = s?.entity?.trim() || i, u = l ? this.getKeypadStateInfo(l) : void 0, d = u?.isTriggered ?? !1, f = i || l, p = f ? this.getKeypadStateInfo(f) : void 0, m = (p?.canDisarm ?? !1) && !(p?.isTriggered ?? !1), h = () => {
 			let e = this.config.default_alert;
 			return {
 				kind: "secure",
@@ -2673,7 +2673,23 @@ var $ = class extends H {
 					icon_color: e?.icon_color
 				}
 			};
-		}, p = () => ({
+		}, g = () => {
+			let e = this.config.default_alert;
+			return {
+				kind: "armed",
+				index: null,
+				key: null,
+				entityId: f || "",
+				rule: {
+					entity: f || "",
+					state: "armed",
+					template: e?.template || "SECURE",
+					message: "System Armed",
+					icon: "mdi:shield-lock",
+					icon_color: e?.icon_color
+				}
+			};
+		}, _ = () => ({
 			kind: "triggered",
 			index: null,
 			key: null,
@@ -2687,17 +2703,17 @@ var $ = class extends H {
 				icon_color: s?.icon_color
 			}
 		});
-		if (c && d) t = [p(), ...t];
+		if (c && d) t = [_(), ...t];
 		else if (t.length === 0) {
 			if (!o) return F;
-			t = [f()];
+			t = r && m ? [g()] : [h()];
 		}
 		return N`
       <div class="card-container">
         ${t.map(({ kind: e, rule: t, index: n, entityId: i, key: o }) => {
-			let s = G(t.template || t.severity), c = t.icon?.trim() || s.defaultIcon, d = n === null ? null : (t.priority || "P2").toUpperCase(), f = d ? `${d} · ${s.name}` : s.name, p = n === null ? null : this.formatLastChanged(i), m = o !== null && this.holdMenuKey === o, h = e === "secure", g = e === "triggered", _ = h && r, v = h ? a : g ? u : void 0, y = v?.formattedState, b = v?.isArmed ?? !1, x = (v?.isArming ?? !1) || (v?.isPendingOrTriggered ?? !1);
+			let s = G(t.template || t.severity), c = t.icon?.trim() || s.defaultIcon, d = n === null ? null : (t.priority || "P2").toUpperCase(), m = d ? `${d} · ${s.name}` : s.name, h = n === null ? null : this.formatLastChanged(i), g = o !== null && this.holdMenuKey === o, _ = e === "secure", v = e === "armed", y = e === "triggered", b = _ && r, x = v && r, S = _ ? a : v ? p : y ? u : void 0, C = S?.formattedState, w = S?.isArmed ?? !1, ee = (S?.isArming ?? !1) || (S?.isPendingOrTriggered ?? !1);
 			return N`
-            <div class="banner-wrapper ${_ && this.keypadOpen || g && this.disarmKeypadOpen ? "keypad-open" : ""}">
+            <div class="banner-wrapper ${(b || x) && this.keypadOpen || y && this.disarmKeypadOpen ? "keypad-open" : ""}">
               <div
                 class="banner template-${s.name.toLowerCase()}"
                 style=${t.icon_color ? `--custom-icon-color: ${t.icon_color};` : ""}
@@ -2713,38 +2729,38 @@ var $ = class extends H {
                 </div>
                 <div class="content">
                   <div class="badge-row">
-                    <span class="badge">${f}</span>
-                    ${p ? N`
+                    <span class="badge">${m}</span>
+                    ${h ? N`
                           <span
                             class="last-changed-badge"
-                            title="Last changed: ${p.full}"
+                            title="Last changed: ${h.full}"
                           >
-                            🕒 ${p.relative}
+                            🕒 ${h.relative}
                           </span>
                         ` : F}
                   </div>
                   <span class="message">${this.formatMessage(t, i)}</span>
                 </div>
 
-                ${h && (_ || this.armDelayRemaining > 0 || y !== void 0) || g ? N`
+                ${_ && (b || this.armDelayRemaining > 0 || C !== void 0) || v || y ? N`
                       <div class="secure-right-controls">
-                        ${h && this.armDelayRemaining > 0 ? N`
+                        ${_ && this.armDelayRemaining > 0 ? N`
                               <span class="alarm-status-badge arming">
                                 ⏳ Arming in ${this.armDelayRemaining}s
                               </span>
-                            ` : y === void 0 ? F : N`
+                            ` : C === void 0 ? F : N`
                                 <span
-                                  class="alarm-status-badge ${x ? "arming" : b ? "armed" : "disarmed"}"
+                                  class="alarm-status-badge ${ee ? "arming" : w ? "armed" : "disarmed"}"
                                 >
-                                  ${v?.isArming ? "⏳" : v?.isPendingOrTriggered ? "⚠️" : b ? "🔒" : "🔓"} ${y}
+                                  ${S?.isArming ? "⏳" : S?.isPendingOrTriggered ? "⚠️" : w ? "🔒" : "🔓"} ${C}
                                 </span>
                               `}
-                        ${_ ? N`
+                        ${b || x ? N`
                               <button
                                 type="button"
                                 class="keypad-toggle-btn ${this.keypadOpen ? "active" : ""}"
-                                title=${this.keypadOpen ? "Close Keypad" : "Open Arm / Away Keypad"}
-                                aria-label=${this.keypadOpen ? "Close Keypad" : "Open Arm / Away Keypad"}
+                                title=${this.keypadOpen ? x ? "Close Disarm Keypad" : "Close Keypad" : x ? "Open Disarm Keypad" : "Open Arm / Away Keypad"}
+                                aria-label=${this.keypadOpen ? x ? "Close Disarm Keypad" : "Close Keypad" : x ? "Open Disarm Keypad" : "Open Arm / Away Keypad"}
                                 aria-expanded=${this.keypadOpen ? "true" : "false"}
                                 @pointerdown=${(e) => e.stopPropagation()}
                                 @pointerup=${(e) => e.stopPropagation()}
@@ -2752,7 +2768,7 @@ var $ = class extends H {
                               >
                                 <ha-icon icon="mdi:dialpad"></ha-icon>
                               </button>
-                            ` : g ? N`
+                            ` : y ? N`
                                 <button
                                   type="button"
                                   class="keypad-toggle-btn ${this.disarmKeypadOpen ? "active" : ""}"
@@ -2769,7 +2785,7 @@ var $ = class extends H {
                       </div>
                     ` : F}
 
-                ${m && o ? N`
+                ${g && o ? N`
                       <div
                         class="hold-menu-overlay"
                         @pointerdown=${(e) => e.stopPropagation()}
@@ -2806,7 +2822,7 @@ var $ = class extends H {
                 <span class="bottom-ribbon" aria-hidden="true"></span>
               </div>
 
-              ${_ && this.keypadOpen ? this.renderKeypadDropdown() : g && this.disarmKeypadOpen ? this.renderDisarmKeypadDropdown(l) : F}
+              ${b && this.keypadOpen ? this.renderKeypadDropdown() : x && this.keypadOpen || y && this.disarmKeypadOpen ? this.renderDisarmKeypadDropdown(v ? f : l) : F}
             </div>
           `;
 		})}

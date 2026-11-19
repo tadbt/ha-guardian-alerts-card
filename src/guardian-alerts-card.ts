@@ -774,10 +774,12 @@ export class GuardianAlertsCard extends LitElement {
     await this.executeKeypadService(mode, targetEntity, this.keypadCode, keypadCfg?.chime);
   }
 
-  private async handleDisarmAction(): Promise<void> {
+  private async handleDisarmAction(targetEntityOverride?: string): Promise<void> {
     const triggeredCfg = this.config?.triggered_alarm;
     const targetEntity =
-      triggeredCfg?.entity?.trim() || this.config?.default_alert?.keypad?.entity?.trim();
+      targetEntityOverride?.trim() ||
+      triggeredCfg?.entity?.trim() ||
+      this.config?.default_alert?.keypad?.entity?.trim();
     const stateInfo = this.getKeypadStateInfo(targetEntity);
 
     const validPasscodes = (triggeredCfg?.passcodes || [])
@@ -1038,7 +1040,7 @@ export class GuardianAlertsCard extends LitElement {
           <button
             type="button"
             class="keypad-action-btn keypad-disarm-btn"
-            @click=${() => void this.handleDisarmAction()}
+            @click=${() => void this.handleDisarmAction(targetEntity)}
           >
             <ha-icon icon="mdi:shield-off"></ha-icon>
             <span>Disarm</span>
@@ -1054,7 +1056,7 @@ export class GuardianAlertsCard extends LitElement {
     if (!this.hass || !this.config) return nothing;
 
     type RenderEntry = {
-      kind: 'alert' | 'secure' | 'triggered';
+      kind: 'alert' | 'secure' | 'armed' | 'triggered';
       rule: AlertRule;
       index: number | null;
       entityId: string;
@@ -1095,6 +1097,10 @@ export class GuardianAlertsCard extends LitElement {
     const triggeredStateInfo = triggeredEntityId ? this.getKeypadStateInfo(triggeredEntityId) : undefined;
     const isAlarmTriggered = triggeredStateInfo?.isTriggered ?? false;
 
+    const armedEntityId = keypadEntityId || triggeredEntityId;
+    const armedStateInfo = armedEntityId ? this.getKeypadStateInfo(armedEntityId) : undefined;
+    const isAlarmArmed = (armedStateInfo?.canDisarm ?? false) && !(armedStateInfo?.isTriggered ?? false);
+
     const createDefaultEntry = (): RenderEntry => {
       const defaultAlert = this.config.default_alert;
       return {
@@ -1108,6 +1114,24 @@ export class GuardianAlertsCard extends LitElement {
           template: defaultAlert?.template || 'SECURE',
           message: defaultAlert?.message || 'All Secured',
           icon: defaultAlert?.icon || 'mdi:shield-check',
+          icon_color: defaultAlert?.icon_color,
+        },
+      };
+    };
+
+    const createArmedEntry = (): RenderEntry => {
+      const defaultAlert = this.config.default_alert;
+      return {
+        kind: 'armed',
+        index: null,
+        key: null,
+        entityId: armedEntityId || '',
+        rule: {
+          entity: armedEntityId || '',
+          state: 'armed',
+          template: defaultAlert?.template || 'SECURE',
+          message: 'System Armed',
+          icon: 'mdi:shield-lock',
           icon_color: defaultAlert?.icon_color,
         },
       };
@@ -1132,7 +1156,7 @@ export class GuardianAlertsCard extends LitElement {
       entriesToRender = [createTriggeredEntry(), ...entriesToRender];
     } else if (entriesToRender.length === 0) {
       if (!showDefaultAlert) return nothing;
-      entriesToRender = [createDefaultEntry()];
+      entriesToRender = keypadEnabled && isAlarmArmed ? [createArmedEntry()] : [createDefaultEntry()];
     }
 
     return html`
@@ -1145,20 +1169,25 @@ export class GuardianAlertsCard extends LitElement {
           const lastChanged = index !== null ? this.formatLastChanged(entityId) : null;
           const isHoldMenuOpen = key !== null && this.holdMenuKey === key;
           const isSecureDefault = kind === 'secure';
+          const isArmedCard = kind === 'armed';
           const isTriggeredCard = kind === 'triggered';
           const showSecureKeypad = isSecureDefault && keypadEnabled;
+          const showArmedKeypad = isArmedCard && keypadEnabled;
           const entryKeypadStateInfo = isSecureDefault
             ? keypadStateInfo
-            : isTriggeredCard
-              ? triggeredStateInfo
-              : undefined;
+            : isArmedCard
+              ? armedStateInfo
+              : isTriggeredCard
+                ? triggeredStateInfo
+                : undefined;
           const alarmStateRaw = entryKeypadStateInfo?.formattedState;
           const isArmedState = entryKeypadStateInfo?.isArmed ?? false;
           const isArmingOrPending =
             (entryKeypadStateInfo?.isArming ?? false) ||
             (entryKeypadStateInfo?.isPendingOrTriggered ?? false);
           const isAnyKeypadOpen =
-            (showSecureKeypad && this.keypadOpen) || (isTriggeredCard && this.disarmKeypadOpen);
+            ((showSecureKeypad || showArmedKeypad) && this.keypadOpen) ||
+            (isTriggeredCard && this.disarmKeypadOpen);
 
           return html`
             <div class="banner-wrapper ${isAnyKeypadOpen ? 'keypad-open' : ''}">
@@ -1193,6 +1222,7 @@ export class GuardianAlertsCard extends LitElement {
                 </div>
 
                 ${(isSecureDefault && (showSecureKeypad || this.armDelayRemaining > 0 || alarmStateRaw !== undefined)) ||
+                isArmedCard ||
                 isTriggeredCard
                   ? html`
                       <div class="secure-right-controls">
@@ -1217,13 +1247,25 @@ export class GuardianAlertsCard extends LitElement {
                                 </span>
                               `
                             : nothing}
-                        ${showSecureKeypad
+                        ${showSecureKeypad || showArmedKeypad
                           ? html`
                               <button
                                 type="button"
                                 class="keypad-toggle-btn ${this.keypadOpen ? 'active' : ''}"
-                                title=${this.keypadOpen ? 'Close Keypad' : 'Open Arm / Away Keypad'}
-                                aria-label=${this.keypadOpen ? 'Close Keypad' : 'Open Arm / Away Keypad'}
+                                title=${this.keypadOpen
+                                  ? showArmedKeypad
+                                    ? 'Close Disarm Keypad'
+                                    : 'Close Keypad'
+                                  : showArmedKeypad
+                                    ? 'Open Disarm Keypad'
+                                    : 'Open Arm / Away Keypad'}
+                                aria-label=${this.keypadOpen
+                                  ? showArmedKeypad
+                                    ? 'Close Disarm Keypad'
+                                    : 'Close Keypad'
+                                  : showArmedKeypad
+                                    ? 'Open Disarm Keypad'
+                                    : 'Open Arm / Away Keypad'}
                                 aria-expanded=${this.keypadOpen ? 'true' : 'false'}
                                 @pointerdown=${(ev: Event) => ev.stopPropagation()}
                                 @pointerup=${(ev: Event) => ev.stopPropagation()}
@@ -1293,8 +1335,8 @@ export class GuardianAlertsCard extends LitElement {
 
               ${showSecureKeypad && this.keypadOpen
                 ? this.renderKeypadDropdown()
-                : isTriggeredCard && this.disarmKeypadOpen
-                  ? this.renderDisarmKeypadDropdown(triggeredEntityId)
+                : (showArmedKeypad && this.keypadOpen) || (isTriggeredCard && this.disarmKeypadOpen)
+                  ? this.renderDisarmKeypadDropdown(isArmedCard ? armedEntityId : triggeredEntityId)
                   : nothing}
             </div>
           `;
