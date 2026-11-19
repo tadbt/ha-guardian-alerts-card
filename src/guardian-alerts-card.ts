@@ -1101,9 +1101,9 @@ export class GuardianAlertsCard extends LitElement {
         kind: 'secure',
         index: null,
         key: null,
-        entityId: defaultAlert?.entity || '',
+        entityId: '',
         rule: {
-          entity: defaultAlert?.entity || '',
+          entity: '',
           state: '',
           template: defaultAlert?.template || 'SECURE',
           message: defaultAlert?.message || 'All Secured',

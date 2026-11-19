@@ -40,7 +40,6 @@ export interface KeypadConfig {
 }
 
 export interface DefaultAlertConfig {
-    entity?: string;
     template?: AlertSeverity;
     message?: string;
     icon?: string;

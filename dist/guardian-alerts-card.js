@@ -1352,10 +1352,6 @@ var Ne = {
 			label: "Default Shield Icon",
 			selector: { icon: { placeholder: "mdi:shield-check" } }
 		}, {
-			name: "entity",
-			label: "Optional Entity (for Tap More-Info)",
-			selector: { entity: {} }
-		}, {
 			name: "keypad_enabled",
 			label: "Show Keypad Button on Secure Card",
 			selector: { boolean: {} }
@@ -1515,7 +1511,7 @@ var Ne = {
 			icon: t.icon || "mdi:shield-check",
 			keypad: i
 		};
-		t.entity && t.entity.trim() !== "" ? a.entity = t.entity.trim() : delete a.entity, this.emitConfigChanged({
+		delete a.entity, this.emitConfigChanged({
 			...this.config,
 			type: this.config.type || "custom:guardian-alerts-card",
 			show_default_alert: n,
@@ -1631,7 +1627,6 @@ var Ne = {
 			message: this.config.default_alert?.message ?? "All Secured",
 			template: (this.config.default_alert?.template || "SECURE").toUpperCase(),
 			icon: this.config.default_alert?.icon || "mdi:shield-check",
-			entity: this.config.default_alert?.entity || "",
 			keypad_enabled: n,
 			keypad_entity: t?.entity || "",
 			keypad_arm_delay: Math.max(0, Math.floor(Number(t?.arm_delay ?? 0))),
@@ -1781,7 +1776,7 @@ var Ne = {
 
         <!-- Collapsible Alert Rules List (Only 1 open at a time) -->
         ${this.config.alerts.map((e, t) => {
-			let n = this.expandedRuleIndex === t, r = (e.priority || "P2").toUpperCase(), i = G(e.template || e.severity), a = this.normalizeRuleEntities(e), o = this.normalizeRuleStates(e), s = J(e.chime), c = a[0], l = c ? this.hass?.states?.[c] : void 0, u = l?.attributes?.unit_of_measurement, d = l?.state === void 0 ? void 0 : `${l.state}${u ? ` ${u}` : ""}`, f = {
+			let n = this.expandedRuleIndex === t, r = (e.priority || "P2").toUpperCase(), i = G(e.template || e.severity), a = this.normalizeRuleEntities(e), o = this.normalizeRuleStates(e), s = J(e.chime), c = a[0], l = c ? this.hass?.states?.[c] : void 0, u = l?.attributes?.friendly_name || c || `Alert Rule #${t + 1}`, d = l?.attributes?.unit_of_measurement, f = l?.state === void 0 ? void 0 : `${l.state}${d ? ` ${d}` : ""}`, p = {
 				priority: r,
 				entities: a,
 				operator: e.operator || "equals",
@@ -1791,7 +1786,7 @@ var Ne = {
 				chime: s,
 				icon: e.icon || "",
 				message: e.message || ""
-			}, p = a.length === 0 ? "No entity selected" : a.length === 1 ? a[0] : `${a[0]} +${a.length - 1} more`;
+			}, m = a.length === 0 ? "No entity selected" : a.length === 1 ? a[0] : `${a[0]} +${a.length - 1} more`;
 			return N`
             <div class="rule-card ${n ? "expanded" : "collapsed"}">
               <div
@@ -1802,10 +1797,10 @@ var Ne = {
                   <span class="priority-pill priority-${r.toLowerCase()}">${r}</span>
                   <div class="rule-summary">
                     <span class="rule-title">
-                      ${e.message || `Alert Rule #${t + 1}`} (${i.name})
+                      ${u} (${i.name})
                     </span>
                     <span class="rule-subtitle">
-                      ${p}
+                      ${m}
                       ${o.length > 0 ? ` · [${o.join(", ")}]` : ""}
                       ${s === "none" ? "" : ` · 🔔 ${s}`}
                     </span>
@@ -1834,8 +1829,8 @@ var Ne = {
                     <div class="rule-body">
                       <ha-form
                         .hass=${this.hass}
-                        .data=${f}
-                        .schema=${this.getRuleSchema(a, i.defaultIcon, o, d)}
+                        .data=${p}
+                        .schema=${this.getRuleSchema(a, i.defaultIcon, o, f)}
                         .computeLabel=${this.computeLabel}
                         .computeHelper=${this.computeHelper}
                         @value-changed=${(e) => this.onRuleFormChanged(t, e)}
@@ -2668,9 +2663,9 @@ var $ = class extends H {
 				kind: "secure",
 				index: null,
 				key: null,
-				entityId: e?.entity || "",
+				entityId: "",
 				rule: {
-					entity: e?.entity || "",
+					entity: "",
 					state: "",
 					template: e?.template || "SECURE",
 					message: e?.message || "All Secured",

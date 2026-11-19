@@ -404,11 +404,6 @@ export class GuardianAlertsCardEditor extends LitElement {
           },
         },
         {
-          name: 'entity',
-          label: 'Optional Entity (for Tap More-Info)',
-          selector: { entity: {} },
-        },
-        {
           name: 'keypad_enabled',
           label: 'Show Keypad Button on Secure Card',
           selector: { boolean: {} },
@@ -661,12 +656,7 @@ export class GuardianAlertsCardEditor extends LitElement {
       icon: value.icon || 'mdi:shield-check',
       keypad: nextKeypad,
     };
-
-    if (value.entity && value.entity.trim() !== '') {
-      nextDefaultAlert.entity = value.entity.trim();
-    } else {
-      delete nextDefaultAlert.entity;
-    }
+    delete (nextDefaultAlert as Record<string, unknown>).entity;
 
     this.emitConfigChanged({
       ...this.config,
@@ -884,7 +874,6 @@ export class GuardianAlertsCardEditor extends LitElement {
       message: this.config.default_alert?.message ?? 'All Secured',
       template: (this.config.default_alert?.template || 'SECURE').toUpperCase(),
       icon: this.config.default_alert?.icon || 'mdi:shield-check',
-      entity: this.config.default_alert?.entity || '',
       keypad_enabled: keypadEnabled,
       keypad_entity: keypadCfg?.entity || '',
       keypad_arm_delay: Math.max(0, Math.floor(Number(keypadCfg?.arm_delay ?? 0))),
@@ -1064,6 +1053,8 @@ export class GuardianAlertsCardEditor extends LitElement {
 
           const firstEntity = selectedEntities[0];
           const entityStateObj = firstEntity ? this.hass?.states?.[firstEntity] : undefined;
+          const firstEntityName =
+            entityStateObj?.attributes?.friendly_name || firstEntity || `Alert Rule #${index + 1}`;
           const unit = entityStateObj?.attributes?.unit_of_measurement;
           const liveStateDisplay =
             entityStateObj?.state !== undefined
@@ -1099,7 +1090,7 @@ export class GuardianAlertsCardEditor extends LitElement {
                   <span class="priority-pill priority-${priority.toLowerCase()}">${priority}</span>
                   <div class="rule-summary">
                     <span class="rule-title">
-                      ${rule.message || `Alert Rule #${index + 1}`} (${tpl.name})
+                      ${firstEntityName} (${tpl.name})
                     </span>
                     <span class="rule-subtitle">
                       ${entitiesSummary}
